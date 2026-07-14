@@ -1,5 +1,17 @@
 // packages/shared-types/concept.ts
 
+/**
+ * Universal Concept Model
+ *
+ * A Concept represents an educational idea that is independent of:
+ * - Board (CBSE, ICSE, IB...)
+ * - Grade
+ * - Curriculum
+ *
+ * Curriculum-specific information is maintained separately
+ * in CurriculumMapping.
+ */
+
 export type DifficultyLevel =
   | "foundation"
   | "grade"
@@ -33,6 +45,8 @@ export interface Misconception {
   misconception: string;
 
   correction: string;
+
+  confidence?: number;
 }
 
 export interface QuestionTemplate {
@@ -45,6 +59,20 @@ export interface QuestionTemplate {
     | "olympiad";
 
   description: string;
+
+  bloomLevel: BloomLevel;
+
+  recommendedDifficulty: DifficultyLevel;
+}
+
+export interface ConceptMetadata {
+  version: number;
+
+  sourceDocuments: string[];
+
+  createdAt: string;
+
+  updatedAt: string;
 }
 
 export interface Concept {
@@ -53,17 +81,9 @@ export interface Concept {
 
   name: string;
 
-  subject: string;
+  domains: string[]
 
-  chapter: string;
-
-  learningObjective: string;
-
-  grades: number[];
-
-  curriculum: string[];
-
-  difficulty: DifficultyLevel;
+  learningObjectives: string[];
 
   bloomLevel: BloomLevel;
 
@@ -79,6 +99,8 @@ export interface Concept {
 
   leadsTo: ConceptReference[];
 
+  relatedConcepts: ConceptReference[];
+
   misconceptions: Misconception[];
 
   teaching: TeachingStrategy;
@@ -90,4 +112,8 @@ export interface Concept {
   sourceDocuments: string[];
 
   version: number;
+
+  keywords: string[];
+
+  metadata: ConceptMetadata;
 }
