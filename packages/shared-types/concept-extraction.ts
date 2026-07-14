@@ -4,13 +4,7 @@ export interface ExtractedConcept {
 
   name: string;
 
-  subject: string;
-
-  chapter: string;
-
-  gradeRange: number[];
-
-  learningObjective: string;
+  learningObjectives: string[];
 
   explanation: string;
 
@@ -26,4 +20,18 @@ export interface ExtractedConcept {
 
   questionTemplates: string[];
 
+  keywords: string[];
+}
+
+export interface ConceptExtractionResult {
+
+  concepts: ExtractedConcept[];
+
+  warnings: string[];
+
+  metadata: {
+    documentId: string;
+    extractor: string;
+    extractedAt: string;
+  };
 }
