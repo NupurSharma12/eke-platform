@@ -1,37 +1,37 @@
 export interface ExtractedConcept {
 
-  id: string;
+    id: string;
 
-  name: string;
+    name: string;
 
-  learningObjectives: string[];
+    learningObjectives: string[];
 
-  explanation: string;
+    explanation: string;
 
-  prerequisites: string[];
+    prerequisites: string[];
 
-  misconceptions: string[];
+    misconceptions: string[];
 
-  teachingStrategies: string[];
+    teachingStrategies: string[];
 
-  activities: string[];
+    activities: string[];
 
-  realLifeExamples: string[];
+    realLifeExamples: string[];
 
-  questionTemplates: string[];
+    questionTemplates: string[];
 
-  keywords: string[];
+    keywords: string[];
 }
 
 export interface ConceptExtractionResult {
 
-  concepts: ExtractedConcept[];
+    concepts: ExtractedConcept[];
 
-  warnings: string[];
+    warnings: string[];
 
-  metadata: {
-    documentId: string;
-    extractor: string;
-    extractedAt: string;
-  };
+    metadata: {
+        documentId: string;
+        extractor: string;
+        extractedAt: string;
+    };
 }

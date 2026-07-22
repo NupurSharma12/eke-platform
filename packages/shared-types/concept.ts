@@ -87,6 +87,13 @@ export interface Concept {
 
   bloomLevel: BloomLevel;
 
+  /**
+   * Concept-level difficulty. Distinct from
+   * QuestionTemplate.recommendedDifficulty, which may vary
+   * per question generated for this concept.
+   */
+  difficulty: DifficultyLevel;
+
   explanation: string;
 
   realLifeExamples: string[];

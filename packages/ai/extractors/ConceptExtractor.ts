@@ -1,12 +1,12 @@
-import { ParsedDocument } from "../../knowledge-engine";
+// packages/ai/extractors/ConceptExtractor.ts
 
-import { ConceptExtractionResult }
-from "../../shared-types";
+import {
+  ParsedDocument,
+  ConceptExtractionResult,
+} from "../../shared-types";
 
 export interface ConceptExtractor {
-
-    extract(
-        document: ParsedDocument
-    ): Promise<ConceptExtractionResult>;
-
+  extract(
+    document: ParsedDocument
+  ): Promise<ConceptExtractionResult>;
 }

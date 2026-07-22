@@ -1,19 +1,31 @@
-export interface ParsedDocument {
+import fs from "fs/promises";
+import path from "path";
+import { PDFParse } from "pdf-parse";
 
-    id: string;
+import { ParsedDocument } from "../../shared-types";
 
-    title: string;
+export async function parseDocument(
+  filePath: string
+): Promise<ParsedDocument> {
+  const pdfBuffer = await fs.readFile(filePath);
 
-    content: string;
+  const arrayBuffer = pdfBuffer.buffer.slice(
+    pdfBuffer.byteOffset,
+    pdfBuffer.byteOffset + pdfBuffer.byteLength
+  ) as ArrayBuffer;
 
-    pageCount: number;
+  const parser = new PDFParse({
+    data: arrayBuffer,
+  });
 
-    metadata: Record<string, string>;
+  const result = await parser.getText();
 
-}
+  const filename = path.basename(filePath);
 
-export async function parseDocument() {
-
-    throw new Error("Not implemented");
-
+  return {
+    id: filename,
+    filename,
+    text: result.text,
+    pages: result.text.split("\f"),
+  };
 }
