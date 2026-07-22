@@ -1,2 +1,2 @@
 export * from "./ConceptRepository";
-//export * from "./LearningGraphRepository";
+export * from "./LearningGraphRepository";

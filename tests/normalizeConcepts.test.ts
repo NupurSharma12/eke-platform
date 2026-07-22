@@ -18,6 +18,13 @@ function test(name: string, fn: () => void) {
   console.log(`  ok - ${name}`);
 }
 
+// Deliberately different from SOURCE_DOCUMENT_ID below, to prove
+// normalizeConcepts ignores LLM-generated extraction metadata as
+// provenance and uses the caller-supplied source document id
+// instead.
+const LLM_GENERATED_METADATA_DOCUMENT_ID = "curriculum-document";
+const SOURCE_DOCUMENT_ID = "eemm103.pdf";
+
 function fixture(
   overrides: Partial<ConceptExtractionResult["concepts"][number]> = {}
 ): ConceptExtractionResult {
@@ -40,7 +47,7 @@ function fixture(
     ],
     warnings: [],
     metadata: {
-      documentId: "doc-123",
+      documentId: LLM_GENERATED_METADATA_DOCUMENT_ID,
       extractor: "test-fixture",
       extractedAt: "2026-01-01T00:00:00.000Z",
     },
@@ -50,13 +57,13 @@ function fixture(
 console.log("normalizeConcepts");
 
 test("preserves id and name", () => {
-  const [concept] = normalizeConcepts(fixture());
+  const [concept] = normalizeConcepts(fixture(), SOURCE_DOCUMENT_ID);
   assert.equal(concept.id, "equivalent-fractions");
   assert.equal(concept.name, "Equivalent Fractions");
 });
 
 test("maps prerequisites to ConceptReference objects", () => {
-  const [concept] = normalizeConcepts(fixture());
+  const [concept] = normalizeConcepts(fixture(), SOURCE_DOCUMENT_ID);
   assert.deepEqual(concept.prerequisites, [
     {
       id: "understanding-of-basic-geometry-concepts",
@@ -73,12 +80,12 @@ test("identical prerequisite text across concepts collapses to the same id", () 
     name: "Comparing Fractions",
   });
 
-  const [first, second] = normalizeConcepts(data);
+  const [first, second] = normalizeConcepts(data, SOURCE_DOCUMENT_ID);
   assert.equal(first.prerequisites[0].id, second.prerequisites[0].id);
 });
 
 test("maps misconceptions with empty correction and no fabricated confidence", () => {
-  const [concept] = normalizeConcepts(fixture());
+  const [concept] = normalizeConcepts(fixture(), SOURCE_DOCUMENT_ID);
   assert.equal(concept.misconceptions.length, 1);
   assert.equal(
     concept.misconceptions[0].misconception,
@@ -89,7 +96,7 @@ test("maps misconceptions with empty correction and no fabricated confidence", (
 });
 
 test("maps activities and real-life examples", () => {
-  const [concept] = normalizeConcepts(fixture());
+  const [concept] = normalizeConcepts(fixture(), SOURCE_DOCUMENT_ID);
   assert.deepEqual(concept.teaching.activities, ["Fold paper into equal parts"]);
   assert.deepEqual(concept.realLifeExamples, ["Sharing a pizza fairly"]);
 });
@@ -112,7 +119,7 @@ test("infers question template type from prompt text", () => {
 });
 
 test("sets sensible defaults for fields absent from extraction", () => {
-  const [concept] = normalizeConcepts(fixture());
+  const [concept] = normalizeConcepts(fixture(), SOURCE_DOCUMENT_ID);
   assert.equal(concept.bloomLevel, "understand");
   assert.equal(concept.difficulty, "grade");
   assert.equal(concept.estimatedMinutes, 10);
@@ -123,16 +130,26 @@ test("sets sensible defaults for fields absent from extraction", () => {
   assert.deepEqual(concept.relatedConcepts, []);
 });
 
-test("derives sourceDocuments and metadata timestamps from extraction metadata, not wall-clock time", () => {
-  const [concept] = normalizeConcepts(fixture());
-  assert.deepEqual(concept.sourceDocuments, ["doc-123"]);
+test("uses the caller-supplied sourceDocumentId for provenance, not extraction metadata", () => {
+  const [concept] = normalizeConcepts(fixture(), SOURCE_DOCUMENT_ID);
+  assert.deepEqual(concept.sourceDocuments, [SOURCE_DOCUMENT_ID]);
+  assert.deepEqual(concept.metadata.sourceDocuments, [SOURCE_DOCUMENT_ID]);
+  assert.notEqual(SOURCE_DOCUMENT_ID, LLM_GENERATED_METADATA_DOCUMENT_ID);
+  assert.ok(!concept.sourceDocuments.includes(LLM_GENERATED_METADATA_DOCUMENT_ID));
+});
+
+test("still derives metadata timestamps from extraction metadata, not wall-clock time", () => {
+  const [concept] = normalizeConcepts(fixture(), SOURCE_DOCUMENT_ID);
   assert.equal(concept.metadata.createdAt, "2026-01-01T00:00:00.000Z");
   assert.equal(concept.metadata.updatedAt, "2026-01-01T00:00:00.000Z");
 });
 
 test("is deterministic: same input produces deep-equal output", () => {
   const data = fixture();
-  assert.deepEqual(normalizeConcepts(data), normalizeConcepts(data));
+  assert.deepEqual(
+    normalizeConcepts(data, SOURCE_DOCUMENT_ID),
+    normalizeConcepts(data, SOURCE_DOCUMENT_ID)
+  );
 });
 
 test("slugify produces stable, url-safe ids", () => {
@@ -149,13 +166,14 @@ test("normalizes the real eemm103 extraction checkpoint without throwing", () =>
     readFileSync(checkpointPath, "utf-8")
   );
 
-  const concepts = normalizeConcepts(raw);
+  const concepts = normalizeConcepts(raw, SOURCE_DOCUMENT_ID);
 
   assert.equal(concepts.length, raw.concepts.length);
   for (const concept of concepts) {
     assert.ok(concept.id.length > 0);
     assert.ok(Array.isArray(concept.prerequisites));
     assert.ok(Array.isArray(concept.questionTemplates));
+    assert.deepEqual(concept.sourceDocuments, [SOURCE_DOCUMENT_ID]);
   }
 });
 

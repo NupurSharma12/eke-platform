@@ -3,22 +3,28 @@ import path from "path";
 
 import { ConceptExtractionResult } from "../../shared-types";
 
+/**
+ * Where a raw extraction checkpoint for `filename` lives.
+ * Exported so callers (e.g. the batch pipeline) can check
+ * whether a checkpoint already exists without re-deriving or
+ * duplicating this path convention themselves.
+ */
+export function getRawExtractionPath(filename: string): string {
+  return path.join(
+    path.resolve("data/extractions/raw"),
+    filename
+  );
+}
+
 export async function saveRawExtraction(
   result: ConceptExtractionResult,
   filename: string
 ): Promise<string> {
-  const outputDirectory = path.resolve(
-    "data/extractions/raw"
-  );
+  const outputPath = getRawExtractionPath(filename);
 
-  await fs.mkdir(outputDirectory, {
+  await fs.mkdir(path.dirname(outputPath), {
     recursive: true,
   });
-
-  const outputPath = path.join(
-    outputDirectory,
-    filename
-  );
 
   await fs.writeFile(
     outputPath,

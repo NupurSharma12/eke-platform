@@ -9,7 +9,14 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:normalize": "tsx tests/normalizeConcepts.test.ts",
-    "test:graph": "tsx tests/buildKnowledgeGraph.test.ts"
+    "test:graph": "tsx tests/buildKnowledgeGraph.test.ts",
+    "test:save-graph": "tsx tests/saveKnowledgeGraph.test.ts",
+    "test:find-pdfs": "tsx tests/findPdfFiles.test.ts",
+    "test:batch": "tsx tests/runBatchPipeline.test.ts",
+    "test:resolve-reference": "tsx tests/resolveReference.test.ts",
+    "test:canonicalize": "tsx tests/canonicalizeConcepts.test.ts",
+    "test:inspect-graph": "tsx tests/inspectKnowledgeGraph.test.ts",
+    "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.5",
@@ -47,6 +54,7 @@
     "@types/node": "20.6.2",
     "@types/react": "18.2.22",
     "@types/react-dom": "18.2.7",
+    "adm-zip": "^0.6.0",
     "autoprefixer": "10.4.15",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
@@ -79,6 +87,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "tsx": "^4.23.1"
   }
 }

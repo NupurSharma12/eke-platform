@@ -14,6 +14,7 @@ function test(name: string, fn: () => void) {
 function concept(overrides: Partial<Concept> & { id: string }): Concept {
   return {
     name: overrides.id,
+    aliases: [],
     domains: [],
     learningObjectives: [],
     bloomLevel: "understand",

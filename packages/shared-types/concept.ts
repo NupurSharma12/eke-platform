@@ -81,6 +81,15 @@ export interface Concept {
 
   name: string;
 
+  /**
+   * Confirmed alternate names/phrasings known to refer to this
+   * same canonical concept (e.g. "Understanding of Fractions"
+   * for canonical concept "Fractions"). Populated only by the
+   * canonicalization stage via safe, deterministic matches —
+   * never by unconfirmed/ambiguous guesses.
+   */
+  aliases: string[];
+
   domains: string[]
 
   learningObjectives: string[];
