@@ -421,3 +421,122 @@ The Knowledge Graph is shared across all learners and evolves over time.
 Each student maintains a separate Learning Graph that records their unique relationship with every concept, including mastery, confidence, misconceptions, and review history.
 
 This separation allows EKE to personalize learning while maintaining a single source of educational truth.
+
+
+Purpose
+
+This defines:
+
+What is a concept in EKE?
+
+This is the foundation of the whole system.
+
+For example:
+
+Concept
+├── id
+├── name
+├── aliases
+├── explanation
+├── learningObjectives
+├── prerequisites
+├── misconceptions
+├── teaching strategies
+├── question templates
+└── source provenance
+
+The document should explain the conceptual model behind these fields.
+
+It should contain
+1. Definition of a concept
+
+Example:
+
+A concept is a meaningful unit of knowledge that a student can understand, practice, relate to other concepts, and be assessed on.
+
+Example:
+
+Fractions
+
+is a concept.
+
+These are not necessarily concepts by themselves:
+
+Chapter 2
+Page 45
+Question 17
+
+They are source or content references.
+
+2. Concept identity
+
+This is very important.
+
+The system must distinguish between:
+
+Surface form
+
+and:
+
+Canonical concept
+
+Example:
+
+"Fractions"
+"Understanding Fractions"
+"Fraction Concepts"
+
+may all refer to:
+
+fractions
+
+The document should explain:
+
+Canonical Concept
+        ▲
+        │
+ ┌──────┼──────┐
+ │      │      │
+Fractions  Fraction Concepts
+Understanding Fractions
+3. Concept relationships
+
+At the concept-model level, define what relationships mean.
+
+For example:
+
+Fractions
+    ↓ prerequisite
+Equivalent Fractions
+    ↓
+Comparing Fractions
+
+The detailed graph implementation belongs in 03-Learning-Graph.md.
+
+4. Concept content
+
+Define the kinds of knowledge a concept can contain:
+
+Concept
+├── Explanation
+├── Learning Objectives
+├── Examples
+├── Misconceptions
+├── Teaching Strategies
+└── Question Templates
+5. Provenance
+
+A concept may come from multiple sources.
+
+For example:
+
+Canonical Concept: Fractions
+
+Sources:
+├── NCERT
+├── Olympiad Book
+└── School Worksheet
+
+But the concept itself must not become duplicated simply because multiple sources mention it.
+
+This is exactly where your current ConceptSource model fits.

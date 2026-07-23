@@ -16,6 +16,10 @@
     "test:resolve-reference": "tsx tests/resolveReference.test.ts",
     "test:canonicalize": "tsx tests/canonicalizeConcepts.test.ts",
     "test:inspect-graph": "tsx tests/inspectKnowledgeGraph.test.ts",
+    "test:classify": "tsx tests/classifyDocument.test.ts",
+    "test:source-metadata": "tsx tests/saveSourceMetadata.test.ts",
+    "test:question-pattern": "tsx tests/questionPattern.test.ts",
+    "test:role-aware": "tsx tests/roleAwareCanonicalization.test.ts",
     "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts"
   },
   "dependencies": {

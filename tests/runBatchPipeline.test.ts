@@ -80,15 +80,38 @@ async function main() {
     assert.deepEqual(parseArgs(["book.zip"]), {
       zipPath: "book.zip",
       force: false,
+      documentType: "textbook",
     });
     assert.deepEqual(parseArgs(["book.zip", "--force"]), {
       zipPath: "book.zip",
       force: true,
+      documentType: "textbook",
     });
     assert.deepEqual(parseArgs(["--force", "book.zip"]), {
       zipPath: "book.zip",
       force: true,
+      documentType: "textbook",
     });
+  });
+
+  await test("parseArgs accepts --document-type and defaults to textbook when omitted", () => {
+    assert.deepEqual(parseArgs(["book.zip", "--document-type", "olympiad"]), {
+      zipPath: "book.zip",
+      force: false,
+      documentType: "olympiad",
+    });
+    assert.deepEqual(
+      parseArgs(["--document-type", "worksheet", "book.zip", "--force"]),
+      {
+        zipPath: "book.zip",
+        force: true,
+        documentType: "worksheet",
+      }
+    );
+  });
+
+  await test("parseArgs rejects an unknown --document-type value", () => {
+    assert.throws(() => parseArgs(["book.zip", "--document-type", "not-a-real-type"]));
   });
 
   const tempDir = await fs.mkdtemp(

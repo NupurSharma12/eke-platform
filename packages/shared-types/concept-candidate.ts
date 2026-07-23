@@ -25,8 +25,17 @@ export interface ConceptCandidate {
 
   sourceDocumentId: string;
 
-  /** The canonical concept id that was provisionally created for this candidate. */
-  createdConceptId: string;
+  /**
+   * The canonical concept id that was provisionally created for
+   * this candidate, if one was. Absent when the candidate exists
+   * because its source is not authorized to create new canonical
+   * concepts at all (see canonicalizeConcepts) — in that case no
+   * concept was created and there is nothing to point to.
+   */
+  createdConceptId?: string;
+
+  /** Short, top-level explanation of why this candidate exists. */
+  reason: string;
 
   possibleMatches: ConceptCandidateMatch[];
 

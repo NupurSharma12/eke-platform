@@ -4,3 +4,5 @@ export * from "./resolveReference";
 export * from "./canonicalizeConcepts";
 export * from "./saveConceptSources";
 export * from "./saveConceptCandidates";
+export * from "./buildQuestionPattern";
+export * from "./saveQuestionPatterns";

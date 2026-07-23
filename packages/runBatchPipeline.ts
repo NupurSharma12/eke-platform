@@ -14,13 +14,16 @@ import {
   getRawExtractionPath,
   parseDocument,
   saveRawExtraction,
+  saveSourceMetadata,
 } from "./knowledge-engine/ingestion";
 import { normalizeConcepts } from "./knowledge-engine/normalization";
 import {
   canonicalizeConcepts,
   saveConceptSources,
   saveConceptCandidates,
+  saveQuestionPatterns,
 } from "./knowledge-engine/canonicalization";
+import { classifyDocument } from "./knowledge-engine/classification";
 import {
   buildKnowledgeGraph,
   loadKnowledgeGraph,
@@ -34,29 +37,58 @@ import {
   ConceptExtractor,
   ClaudeConceptExtractor,
 } from "./ai";
-import { Concept, ConceptExtractionResult } from "./shared-types";
+import {
+  Concept,
+  ConceptExtractionResult,
+  DocumentType,
+  DOCUMENT_TYPES,
+  SourceContribution,
+} from "./shared-types";
 
 export interface ParsedArgs {
   zipPath: string;
   force: boolean;
+  documentType: DocumentType;
 }
 
 /**
- * Parses CLI args for: <zip-path> [--force]
+ * Parses CLI args for: <zip-path> [--force] [--document-type <type>]
  * The zip path is required and may be any path/filename — it is
- * never assumed to be a specific book/chapter.
+ * never assumed to be a specific book/chapter. documentType
+ * defaults to "textbook" so existing/legacy invocations keep
+ * behaving exactly as before role-awareness was introduced — all
+ * PDFs discovered in the zip share the same documentType, since
+ * they're chapters of the same uploaded book.
  */
 export function parseArgs(argv: string[]): ParsedArgs {
   const force = argv.includes("--force");
-  const zipPath = argv.find((arg) => arg !== "--force");
 
-  if (!zipPath) {
+  const documentTypeIndex = argv.indexOf("--document-type");
+  const documentTypeValue =
+    documentTypeIndex === -1 ? undefined : argv[documentTypeIndex + 1];
+
+  if (documentTypeValue && !(DOCUMENT_TYPES as string[]).includes(documentTypeValue)) {
     throw new Error(
-      "Usage: runBatchPipeline.ts <path-to-zip> [--force]"
+      `Unknown --document-type "${documentTypeValue}". Expected one of: ${DOCUMENT_TYPES.join(", ")}`
     );
   }
 
-  return { zipPath, force };
+  const documentType = (documentTypeValue as DocumentType | undefined) ?? "textbook";
+
+  const zipPath = argv.find(
+    (arg, index) =>
+      arg !== "--force" &&
+      arg !== "--document-type" &&
+      argv[index - 1] !== "--document-type"
+  );
+
+  if (!zipPath) {
+    throw new Error(
+      "Usage: runBatchPipeline.ts <path-to-zip> [--force] [--document-type <type>]"
+    );
+  }
+
+  return { zipPath, force, documentType };
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -138,7 +170,7 @@ export async function runBatch(
 }
 
 async function main() {
-  const { zipPath, force } = parseArgs(process.argv.slice(2));
+  const { zipPath, force, documentType } = parseArgs(process.argv.slice(2));
 
   const tempDir = await fs.mkdtemp(
     path.join(os.tmpdir(), "eke-batch-")
@@ -164,12 +196,38 @@ async function main() {
       force
     );
 
+    const contributions: SourceContribution[] = classifyDocument(documentType);
+
+    // All PDFs in this zip are chapters of the same uploaded
+    // document, so they all share the same classification.
+    const sourceDocumentIds = Array.from(
+      new Set(concepts.map((concept) => concept.sourceDocuments[0]))
+    );
+
+    for (const sourceDocumentId of sourceDocumentIds) {
+      await saveSourceMetadata({
+        sourceDocumentId,
+        title: sourceDocumentId,
+        documentType,
+        contributions,
+      });
+    }
+
+    const sourceContributions = new Map(
+      sourceDocumentIds.map((id) => [id, contributions])
+    );
+
     const existingGraph = await loadKnowledgeGraph(CANONICAL_GRAPH_FILENAME);
 
-    const canonicalization = canonicalizeConcepts(concepts, existingGraph);
+    const canonicalization = canonicalizeConcepts(
+      concepts,
+      existingGraph,
+      sourceContributions
+    );
 
     await saveConceptSources(canonicalization.sources);
     await saveConceptCandidates(canonicalization.candidates);
+    await saveQuestionPatterns(canonicalization.questionPatterns);
 
     const graph = buildKnowledgeGraph(
       canonicalization.concepts,
@@ -187,6 +245,9 @@ async function main() {
     console.log(
       `Succeeded: ${pdfPaths.length - failures.length}/${pdfPaths.length}`
     );
+    if (canonicalization.questionPatterns.length > 0) {
+      console.log(`Question patterns: ${canonicalization.questionPatterns.length}`);
+    }
     if (canonicalization.candidates.length > 0) {
       console.log(
         `Candidates needing review: ${canonicalization.candidates.length}`

@@ -144,3 +144,97 @@ Documents are temporary.
 Concepts are permanent.
 
 Questions are ephemeral.
+
+
+Purpose
+
+This answers:
+
+How does external material enter EKE?
+
+Current pipeline:
+
+PDF
+ ↓
+Parse
+ ↓
+Extract
+ ↓
+Normalize
+ ↓
+Canonicalize
+ ↓
+Build Graph
+
+The document should describe this pipeline.
+
+It should contain
+1. Input formats
+
+Current:
+
+PDF
+
+Future:
+
+Images
+Scanned pages
+Worksheets
+Exam papers
+Answer sheets
+ZIP collections
+2. The ingestion pipeline
+Source Material
+      ↓
+Document Parsing
+      ↓
+AI Extraction
+      ↓
+Normalization
+      ↓
+Canonicalization
+      ↓
+Knowledge Graph
+3. Checkpointing
+
+This is important in your current implementation:
+
+Raw Source
+    ↓
+Raw Extraction Checkpoint
+    ↓
+Normalized Concepts
+    ↓
+Canonicalized Concepts
+    ↓
+Knowledge Graph
+
+The architecture should explain why checkpoints exist:
+
+avoid repeated API calls
+support reprocessing
+allow algorithm changes without re-extracting
+preserve original extraction output
+4. Batch ingestion
+
+Your current ZIP pipeline belongs here:
+
+ZIP
+ │
+ ├── Chapter 1.pdf
+ ├── Chapter 2.pdf
+ ├── Chapter 3.pdf
+ └── Chapter 4.pdf
+        │
+        ▼
+  Process individually
+        │
+        ▼
+  Combine into canonical graph
+5. What this document should NOT decide
+
+This document should not decide:
+
+Whether a source is foundational knowledge or a question boundary.
+
+That is the responsibility of the next document.

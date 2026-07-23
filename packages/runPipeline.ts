@@ -5,13 +5,15 @@ dotenv.config({
 });
 
 import { parseDocument } from "./knowledge-engine/ingestion/parseDocument";
-import { saveRawExtraction } from "./knowledge-engine/ingestion";
+import { saveRawExtraction, saveSourceMetadata } from "./knowledge-engine/ingestion";
 import { normalizeConcepts } from "./knowledge-engine/normalization";
 import {
   canonicalizeConcepts,
   saveConceptSources,
   saveConceptCandidates,
+  saveQuestionPatterns,
 } from "./knowledge-engine/canonicalization";
+import { classifyDocument } from "./knowledge-engine/classification";
 import {
   buildKnowledgeGraph,
   loadKnowledgeGraph,
@@ -22,11 +24,46 @@ import { AIProvider } from "./ai/providers/AIProvider";
 import { ClaudeProvider } from "./ai/providers/ClaudeProvider";
 import { GroqProvider } from "./ai/providers/GroqProvider";
 import { ClaudeConceptExtractor } from "./ai/extractors/ConceptExtractorService";
+import { DocumentType, DOCUMENT_TYPES, SourceContribution } from "./shared-types";
+
+/**
+ * Parses `--document-type <type>` from argv. Defaults to
+ * "textbook" when not supplied, so existing/legacy invocations of
+ * this script keep behaving exactly as before role-awareness was
+ * introduced.
+ */
+export function parseDocumentTypeArg(argv: string[]): DocumentType {
+  const index = argv.indexOf("--document-type");
+  const value = index === -1 ? undefined : argv[index + 1];
+
+  if (!value) {
+    return "textbook";
+  }
+
+  if (!(DOCUMENT_TYPES as string[]).includes(value)) {
+    throw new Error(
+      `Unknown --document-type "${value}". Expected one of: ${DOCUMENT_TYPES.join(", ")}`
+    );
+  }
+
+  return value as DocumentType;
+}
 
 async function main() {
+  const documentType = parseDocumentTypeArg(process.argv.slice(2));
+
   const document = await parseDocument(
     "data/ncert/eemm103.pdf"
   );
+
+  const contributions: SourceContribution[] = classifyDocument(documentType);
+
+  await saveSourceMetadata({
+    sourceDocumentId: document.id,
+    title: document.filename,
+    documentType,
+    contributions,
+  });
 
   const provider: AIProvider =
     process.env.AI_PROVIDER === "groq"
@@ -50,10 +87,17 @@ async function main() {
 
   const existingGraph = await loadKnowledgeGraph(CANONICAL_GRAPH_FILENAME);
 
-  const canonicalization = canonicalizeConcepts(concepts, existingGraph);
+  const sourceContributions = new Map([[document.id, contributions]]);
+
+  const canonicalization = canonicalizeConcepts(
+    concepts,
+    existingGraph,
+    sourceContributions
+  );
 
   await saveConceptSources(canonicalization.sources);
   await saveConceptCandidates(canonicalization.candidates);
+  await saveQuestionPatterns(canonicalization.questionPatterns);
 
   const graph = buildKnowledgeGraph(canonicalization.concepts, existingGraph);
 
@@ -65,6 +109,9 @@ async function main() {
   console.log(`Canonical knowledge graph saved to: ${graphPath}`);
   console.log(`Concepts: ${graph.concepts.length}`);
   console.log(`Relationships: ${graph.relationships.length}`);
+  if (canonicalization.questionPatterns.length > 0) {
+    console.log(`Question patterns: ${canonicalization.questionPatterns.length}`);
+  }
   if (canonicalization.candidates.length > 0) {
     console.log(
       `Candidates needing review: ${canonicalization.candidates.length}`
