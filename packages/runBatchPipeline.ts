@@ -10,12 +10,14 @@ import path from "path";
 
 import {
   extractZip,
-  findPdfFiles,
+  findSupportedFiles,
   getRawExtractionPath,
   parseDocument,
+  parseImage,
   saveRawExtraction,
   saveSourceMetadata,
 } from "./knowledge-engine/ingestion";
+import { DiscoveredFile } from "./knowledge-engine/ingestion/findSupportedFiles";
 import { normalizeConcepts } from "./knowledge-engine/normalization";
 import {
   canonicalizeConcepts,
@@ -46,19 +48,22 @@ import {
 } from "./shared-types";
 
 export interface ParsedArgs {
+  // Kept as `zipPath` for backward compatibility with existing
+  // callers/tests, even though this may now also be a directory
+  // path containing PDFs/images directly (see resolveInputDirectory).
   zipPath: string;
   force: boolean;
   documentType: DocumentType;
 }
 
 /**
- * Parses CLI args for: <zip-path> [--force] [--document-type <type>]
- * The zip path is required and may be any path/filename — it is
+ * Parses CLI args for: <zip-or-directory-path> [--force] [--document-type <type>]
+ * The path is required and may be any zip/directory path — it is
  * never assumed to be a specific book/chapter. documentType
  * defaults to "textbook" so existing/legacy invocations keep
  * behaving exactly as before role-awareness was introduced — all
- * PDFs discovered in the zip share the same documentType, since
- * they're chapters of the same uploaded book.
+ * files discovered share the same documentType, since they're
+ * chapters/pages of the same uploaded source.
  */
 export function parseArgs(argv: string[]): ParsedArgs {
   const force = argv.includes("--force");
@@ -84,7 +89,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (!zipPath) {
     throw new Error(
-      "Usage: runBatchPipeline.ts <path-to-zip> [--force] [--document-type <type>]"
+      "Usage: runBatchPipeline.ts <path-to-zip-or-directory> [--force] [--document-type <type>]"
     );
   }
 
@@ -100,9 +105,64 @@ async function fileExists(filePath: string): Promise<boolean> {
   }
 }
 
+/**
+ * Resolves the directory that should actually be scanned for
+ * supported files. If `inputPath` is already a directory (a
+ * parent pointing straight at a folder of PDFs/images), it's used
+ * as-is — no zip extraction. Otherwise `inputPath` is treated as
+ * a zip file and extracted into `tempDir`.
+ */
+export async function resolveInputDirectory(
+  inputPath: string,
+  tempDir: string
+): Promise<string> {
+  const stats = await fs.stat(inputPath);
+
+  if (stats.isDirectory()) {
+    return inputPath;
+  }
+
+  await extractZip(inputPath, tempDir);
+  return tempDir;
+}
+
 export interface BatchFailure {
+  // Kept as `pdfPath` for backward compatibility with existing
+  // callers/tests; holds a PDF or image path depending on the
+  // file that failed.
   pdfPath: string;
   error: string;
+}
+
+/**
+ * Runs the existing single-input stages shared by every supported
+ * file kind: check for a reusable checkpoint -> ConceptExtractor
+ * (skipped on a checkpoint hit) -> saveRawExtraction ->
+ * normalizeConcepts. Both processPdf and processImage delegate
+ * here after doing their own kind-specific parsing, so there is
+ * exactly one place that implements checkpoint reuse / `--force`
+ * / normalization, regardless of input format.
+ */
+async function processExtractionInput(
+  document: Awaited<ReturnType<typeof parseDocument>> | Awaited<ReturnType<typeof parseImage>>,
+  extractor: ConceptExtractor,
+  force: boolean
+): Promise<Concept[]> {
+  const checkpointPath = getRawExtractionPath(`${document.id}.json`);
+  const reuseCheckpoint = !force && (await fileExists(checkpointPath));
+
+  let extraction: ConceptExtractionResult;
+
+  if (reuseCheckpoint) {
+    extraction = JSON.parse(
+      await fs.readFile(checkpointPath, "utf-8")
+    );
+  } else {
+    extraction = await extractor.extract(document);
+    await saveRawExtraction(extraction, `${document.id}.json`);
+  }
+
+  return normalizeConcepts(extraction, document.id);
 }
 
 /**
@@ -122,22 +182,22 @@ export async function processPdf(
   force: boolean
 ): Promise<Concept[]> {
   const document = await parseDocument(pdfPath);
+  return processExtractionInput(document, extractor, force);
+}
 
-  const checkpointPath = getRawExtractionPath(`${document.id}.json`);
-  const reuseCheckpoint = !force && (await fileExists(checkpointPath));
-
-  let extraction: ConceptExtractionResult;
-
-  if (reuseCheckpoint) {
-    extraction = JSON.parse(
-      await fs.readFile(checkpointPath, "utf-8")
-    );
-  } else {
-    extraction = await extractor.extract(document);
-    await saveRawExtraction(extraction, `${document.id}.json`);
-  }
-
-  return normalizeConcepts(extraction, document.id);
+/**
+ * Same shape as processPdf, for one image file (JPEG/JPG/PNG).
+ * sourceDocumentId is the image's own filename — each photographed
+ * page is independently checkpointed and independently
+ * reprocessable, exactly like each PDF is today.
+ */
+export async function processImage(
+  imagePath: string,
+  extractor: ConceptExtractor,
+  force: boolean
+): Promise<Concept[]> {
+  const document = await parseImage(imagePath);
+  return processExtractionInput(document, extractor, force);
 }
 
 /**
@@ -145,22 +205,49 @@ export async function processPdf(
  * failures rather than aborting the whole batch. Successes are
  * merged into one Concept[]; failures are collected with the
  * offending path and error message.
+ *
+ * Kept for backward compatibility (signature and behavior
+ * unchanged); implemented as a thin call into the more general
+ * runBatchForFiles.
  */
 export async function runBatch(
   pdfPaths: string[],
   extractor: ConceptExtractor,
   force: boolean
 ): Promise<{ concepts: Concept[]; failures: BatchFailure[] }> {
+  return runBatchForFiles(
+    pdfPaths.map((absolutePath): DiscoveredFile => ({ absolutePath, kind: "pdf" })),
+    extractor,
+    force
+  );
+}
+
+/**
+ * Generalizes runBatch to mixed PDF/image input. Same failure
+ * isolation as runBatch: one failing file is recorded and
+ * processing continues — a single bad photo or corrupt PDF never
+ * silently discards the checkpoints/concepts already produced by
+ * the rest of the batch.
+ */
+export async function runBatchForFiles(
+  files: DiscoveredFile[],
+  extractor: ConceptExtractor,
+  force: boolean
+): Promise<{ concepts: Concept[]; failures: BatchFailure[] }> {
   const concepts: Concept[] = [];
   const failures: BatchFailure[] = [];
 
-  for (const pdfPath of pdfPaths) {
+  for (const file of files) {
     try {
-      const result = await processPdf(pdfPath, extractor, force);
+      const result =
+        file.kind === "pdf"
+          ? await processPdf(file.absolutePath, extractor, force)
+          : await processImage(file.absolutePath, extractor, force);
+
       concepts.push(...result);
     } catch (error) {
       failures.push({
-        pdfPath,
+        pdfPath: file.absolutePath,
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -177,11 +264,23 @@ async function main() {
   );
 
   try {
-    await extractZip(zipPath, tempDir);
+    const inputDirectory = await resolveInputDirectory(zipPath, tempDir);
 
-    const pdfPaths = await findPdfFiles(tempDir);
+    const { files, skipped } = await findSupportedFiles(inputDirectory);
 
-    console.log(`Discovered ${pdfPaths.length} PDF(s) in ${zipPath}`);
+    const pdfCount = files.filter((f) => f.kind === "pdf").length;
+    const imageCount = files.filter((f) => f.kind === "image").length;
+
+    console.log(
+      `Discovered ${files.length} supported file(s) in ${zipPath} (${pdfCount} PDF, ${imageCount} image)`
+    );
+
+    if (skipped.length > 0) {
+      console.log(`Skipped ${skipped.length} unsupported file(s):`);
+      for (const skippedPath of skipped) {
+        console.log(`  - ${skippedPath}`);
+      }
+    }
 
     const provider: AIProvider =
       process.env.AI_PROVIDER === "groq"
@@ -190,16 +289,17 @@ async function main() {
 
     const extractor = new ClaudeConceptExtractor(provider);
 
-    const { concepts, failures } = await runBatch(
-      pdfPaths,
+    const { concepts, failures } = await runBatchForFiles(
+      files,
       extractor,
       force
     );
 
     const contributions: SourceContribution[] = classifyDocument(documentType);
 
-    // All PDFs in this zip are chapters of the same uploaded
-    // document, so they all share the same classification.
+    // Every file in this batch is a chapter/page of the same
+    // uploaded source, so they all share the same classification —
+    // independent of whether that source is a PDF, JPEG, or PNG.
     const sourceDocumentIds = Array.from(
       new Set(concepts.map((concept) => concept.sourceDocuments[0]))
     );
@@ -243,7 +343,7 @@ async function main() {
     console.log(`Concepts: ${graph.concepts.length}`);
     console.log(`Relationships: ${graph.relationships.length}`);
     console.log(
-      `Succeeded: ${pdfPaths.length - failures.length}/${pdfPaths.length}`
+      `Succeeded: ${files.length - failures.length}/${files.length}`
     );
     if (canonicalization.questionPatterns.length > 0) {
       console.log(`Question patterns: ${canonicalization.questionPatterns.length}`);

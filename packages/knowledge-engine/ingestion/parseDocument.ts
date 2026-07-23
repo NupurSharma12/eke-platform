@@ -25,6 +25,7 @@ export async function parseDocument(
   return {
     id: filename,
     filename,
+    kind: "pdf",
     text: result.text,
     pages: result.text.split("\f"),
   };

@@ -3,6 +3,8 @@ export interface ParsedDocument {
 
   filename: string;
 
+  kind: "pdf";
+
   text: string;
 
   pages: string[];

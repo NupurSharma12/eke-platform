@@ -23,6 +23,9 @@
     "test:blueprint": "tsx tests/questionBlueprint.test.ts",
     "test:question-bank": "tsx tests/questionBank.test.ts",
     "test:generate-question": "tsx tests/generateQuestion.test.ts",
+    "test:find-supported": "tsx tests/findSupportedFiles.test.ts",
+    "test:parse-image": "tsx tests/parseImage.test.ts",
+    "test:image-provider": "tsx tests/imageCapableProvider.test.ts",
     "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts",
     "generate:question": "tsx packages/generateQuestion.ts"
   },

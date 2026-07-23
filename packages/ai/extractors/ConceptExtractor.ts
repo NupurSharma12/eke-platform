@@ -1,12 +1,12 @@
 // packages/ai/extractors/ConceptExtractor.ts
 
 import {
-  ParsedDocument,
+  ExtractionInput,
   ConceptExtractionResult,
 } from "../../shared-types";
 
 export interface ConceptExtractor {
   extract(
-    document: ParsedDocument
+    input: ExtractionInput
   ): Promise<ConceptExtractionResult>;
 }

@@ -14,4 +14,5 @@ export * from "./generated-question-draft";
 export * from "./ingestion-job";
 export * from "./curriculum-mapping";
 export * from "./parsed-document";
+export * from "./extraction-input";
 export * from "./knowledge-graph";
