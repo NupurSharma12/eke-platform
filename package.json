@@ -20,7 +20,11 @@
     "test:source-metadata": "tsx tests/saveSourceMetadata.test.ts",
     "test:question-pattern": "tsx tests/questionPattern.test.ts",
     "test:role-aware": "tsx tests/roleAwareCanonicalization.test.ts",
-    "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts"
+    "test:blueprint": "tsx tests/questionBlueprint.test.ts",
+    "test:question-bank": "tsx tests/questionBank.test.ts",
+    "test:generate-question": "tsx tests/generateQuestion.test.ts",
+    "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts",
+    "generate:question": "tsx packages/generateQuestion.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.5",

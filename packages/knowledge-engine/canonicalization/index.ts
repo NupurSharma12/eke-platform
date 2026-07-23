@@ -6,3 +6,4 @@ export * from "./saveConceptSources";
 export * from "./saveConceptCandidates";
 export * from "./buildQuestionPattern";
 export * from "./saveQuestionPatterns";
+export * from "./loadQuestionPatterns";
