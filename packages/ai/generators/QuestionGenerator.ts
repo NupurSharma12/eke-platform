@@ -1,5 +1,9 @@
 import { GeneratedQuestionDraft, QuestionBlueprint } from "../../shared-types";
 
 export interface QuestionGenerator {
-  generate(blueprint: QuestionBlueprint): Promise<GeneratedQuestionDraft>;
+  /** One LLM call, returning a pool of up to `poolSize` draft questions sharing the blueprint. */
+  generateBatch(
+    blueprint: QuestionBlueprint,
+    poolSize: number
+  ): Promise<GeneratedQuestionDraft[]>;
 }

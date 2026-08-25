@@ -1,4 +1,5 @@
 import { QuestionType } from "./question-type";
+import { VisualSpec } from "./visual-spec";
 
 /**
  * The raw shape returned by the LLM, before EKE attaches identity
@@ -20,4 +21,13 @@ export interface GeneratedQuestionDraft {
   correctAnswer: string;
 
   explanation: string;
+
+  /**
+   * Present only when the question depends on a diagram/figure —
+   * a validated, deterministically-renderable specification, never
+   * an image or LLM-authored markup. Absent for every plain-text
+   * question; adding this field changes nothing about existing
+   * questions that never set it.
+   */
+  visualSpec?: VisualSpec;
 }

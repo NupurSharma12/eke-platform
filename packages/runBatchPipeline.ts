@@ -36,8 +36,10 @@ import {
   AIProvider,
   ClaudeProvider,
   GroqProvider,
+  GeminiProvider,
   ConceptExtractor,
   ClaudeConceptExtractor,
+  withRetry,
 } from "./ai";
 import {
   Concept,
@@ -122,8 +124,30 @@ export async function resolveInputDirectory(
     return inputPath;
   }
 
-  await extractZip(inputPath, tempDir);
-  return tempDir;
+  const extension = path.extname(inputPath).toLowerCase();
+
+  if (extension === ".zip") {
+    await extractZip(inputPath, tempDir);
+    return tempDir;
+  }
+
+  if (
+    extension === ".pdf" ||
+    extension === ".jpeg" ||
+    extension === ".jpg" ||
+    extension === ".png"
+  ) {
+    await fs.copyFile(
+      inputPath,
+      path.join(tempDir, path.basename(inputPath))
+    );
+
+    return tempDir;
+  }
+
+  throw new Error(
+    `Unsupported input file type: ${inputPath}. Expected .zip, .pdf, .jpeg, .jpg, or .png.`
+  );
 }
 
 export interface BatchFailure {
@@ -282,10 +306,19 @@ async function main() {
       }
     }
 
-    const provider: AIProvider =
+    // Defaults to ClaudeProvider exactly as before Gemini existed —
+    // AI_PROVIDER unset or any value other than "groq"/"gemini"
+    // preserves today's behavior unchanged. Wrapped in withRetry so
+    // a rate-limited call (e.g. Gemini's free-tier
+    // RESOURCE_EXHAUSTED) is retried after the provider's own
+    // suggested delay instead of failing the file outright.
+    const provider: AIProvider = withRetry(
       process.env.AI_PROVIDER === "groq"
         ? new GroqProvider()
-        : new ClaudeProvider();
+        : process.env.AI_PROVIDER === "gemini"
+        ? new GeminiProvider()
+        : new ClaudeProvider()
+    );
 
     const extractor = new ClaudeConceptExtractor(provider);
 

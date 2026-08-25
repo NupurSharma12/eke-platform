@@ -50,3 +50,5 @@ Tradeoffs
 
 - Requires a normalization stage after extraction.
 - Requires CurriculumMappings.
+
+See ADR-006 for how curriculum structure (chapters) is concretely established and linked to concepts without storing it on the Concept entity.

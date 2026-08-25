@@ -1,18 +1,26 @@
-export * from "./concept";
-export * from "./concept-extraction";
-export * from "./concept-source";
-export * from "./concept-candidate";
-export * from "./document-type";
-export * from "./source-contribution";
-export * from "./source-metadata";
-export * from "./question-pattern";
-export * from "./question-type";
-export * from "./question-generation-request";
-export * from "./question-blueprint";
-export * from "./generated-question";
-export * from "./generated-question-draft";
-export * from "./ingestion-job";
-export * from "./curriculum-mapping";
-export * from "./parsed-document";
-export * from "./extraction-input";
-export * from "./knowledge-graph";
+export * from "./concept/concept";
+export * from "./concept/concept-extraction";
+export * from "./concept/concept-source";
+export * from "./concept/concept-candidate";
+export * from "./concept/extraction-input";
+
+export * from "./knowledge-graph/knowledge-graph";
+
+export * from "./source/document-type";
+export * from "./source/source-contribution";
+export * from "./source/source-metadata";
+
+export * from "./question/question-pattern";
+export * from "./question/visual-spec";
+export * from "./question/question-type";
+export * from "./question/question-generation-request";
+export * from "./question/question-blueprint";
+export * from "./question/generated-question";
+export * from "./question/generated-question-draft";
+
+export * from "./document/parsed-document";
+
+export * from "./curriculum/chapter";
+
+export * from "./future/ingestion-job";
+export * from "./future/curriculum-mapping";

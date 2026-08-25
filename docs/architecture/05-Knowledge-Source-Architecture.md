@@ -155,3 +155,21 @@ Question Sources:
 
 Assessment Sources:
 └── School exam question pattern
+
+6. Curriculum boundaries vs. supporting knowledge sources
+
+The roles above answer what a source contributes. They don't yet answer a separate question: for a specific practice session, which concepts are allowed to appear at all.
+
+ADR-006 splits this into two independent rules:
+
+Curriculum scope
+— which concepts are eligible to be tested — is defined, for School Exam Mode, by the official textbook's selected chapters, resolved to concepts via those chapters' source documents. Nothing outside that resolved set is in scope, regardless of what any other source contains.
+
+Generation source policy
+— which resources may inform how an in-scope question is written — is unchanged by the above. A Worksheet's or Olympiad book's Question Pattern may still shape an in-scope question's style, difficulty, or structure, exactly as this document already describes. Using a supporting source's pattern must never be the reason an out-of-scope concept gets asked.
+
+An Exam Blueprint or sample paper (Assessment Evidence) follows the same split: it defines exam pattern — question types, counts, difficulty mix, marks distribution — and may inform generation source policy like any other assessment-evidence source. It never defines or expands curriculum scope.
+
+General Practice Mode is not subject to this boundary — chapters, topics, and Olympiad sections remain directly selectable, as today.
+
+See ADR-006 for the full decision. How this boundary is enforced against pattern selection in code (findSuitablePattern / buildBlueprint) is not yet decided — recorded as an open follow-up, not solved by this section.

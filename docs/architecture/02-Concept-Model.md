@@ -32,6 +32,8 @@ EKE asks:
 
 # Hierarchy
 
+Subject and Chapter are curriculum-structure context a Concept can be *reached through* — the path a user navigates to find it — not fields stored *on* the Concept itself. See ADR-001 and ADR-006: a Concept stays curriculum-independent; Subject/Chapter identity lives in the separate curriculum-structure layer (ADR-006) and links to Concepts indirectly, via the resources a chapter's content came from.
+
 ```
 Subject
     ↓
@@ -141,13 +143,11 @@ Each Concept should contain:
 
 - Unique ID
 - Name
-- Subject
-- Chapter
 - Learning Objective
-- Grade Range
 - Difficulty
-- Curriculum
 - Language
+
+Per ADR-001, a Concept never stores board, grade, chapter number, or textbook name — Subject/Chapter/Grade Range/Curriculum are curriculum-structure context (see ADR-006), not Concept fields. An earlier version of this list included them; that was a contradiction of ADR-001, corrected here.
 
 ---
 

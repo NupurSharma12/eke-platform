@@ -1,4 +1,4 @@
-import { BloomLevel, DifficultyLevel } from "./concept";
+import { BloomLevel, DifficultyLevel } from "../concept/concept";
 import { QuestionType } from "./question-type";
 
 /**

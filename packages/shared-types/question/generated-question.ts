@@ -1,6 +1,7 @@
-import { DifficultyLevel } from "./concept";
+import { DifficultyLevel } from "../concept/concept";
 import { BlueprintOrigin } from "./question-blueprint";
 import { QuestionType } from "./question-type";
+import { VisualSpec } from "./visual-spec";
 
 /**
  * A persisted, LLM-generated question. Preserves provenance
@@ -33,6 +34,14 @@ export interface GeneratedQuestion {
   correctAnswer: string;
 
   explanation: string;
+
+  /**
+   * Present only when this question depends on a diagram/figure —
+   * a validated, deterministically-renderable specification, never
+   * an image or LLM-authored markup. Absent for every plain-text
+   * question.
+   */
+  visualSpec?: VisualSpec;
 
   /** QuestionPattern ids that influenced this question. Empty when llm-inferred. */
   sourcePatternIds: string[];

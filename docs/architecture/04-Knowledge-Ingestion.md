@@ -221,16 +221,18 @@ Your current ZIP pipeline belongs here:
 
 ZIP
  │
- ├── Chapter 1.pdf
- ├── Chapter 2.pdf
- ├── Chapter 3.pdf
- └── Chapter 4.pdf
+ ├── document-a.pdf
+ ├── document-b.pdf
+ ├── document-c.pdf
+ └── document-d.pdf
         │
         ▼
   Process individually
         │
         ▼
   Combine into canonical graph
+
+Filenames here (`document-a.pdf`, or a real one like `eemm104.pdf`) are resource identifiers assigned at upload time — nothing about a filename is evidence of which chapter, if any, that document represents. Chapter identity is a separate, later curation step: it comes from verified document content (a chapter heading, a table of contents entry) or explicit human confirmation, and stays pending until then. See ADR-006.
 5. What this document should NOT decide
 
 This document should not decide:

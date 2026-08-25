@@ -1,4 +1,4 @@
-import { DifficultyLevel } from "./concept";
+import { DifficultyLevel } from "../concept/concept";
 import { QuestionType } from "./question-type";
 
 /**

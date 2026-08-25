@@ -1,4 +1,4 @@
-import { parseDocument } from "./ingestion/parseDocument";
+import { parseDocument } from "../knowledge-engine/ingestion/parseDocument";
 
 async function main() {
   const document = await parseDocument(

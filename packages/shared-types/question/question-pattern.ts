@@ -1,5 +1,5 @@
-import { QuestionTemplate } from "./concept";
-import { SourceContribution } from "./source-contribution";
+import { QuestionTemplate } from "../concept/concept";
+import { SourceContribution } from "../source/source-contribution";
 
 /**
  * Source-specific question/assessment/challenge knowledge,

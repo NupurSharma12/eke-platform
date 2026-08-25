@@ -4,14 +4,14 @@ dotenv.config({
   path: ".env.local",
 });
 
-import { parseDocument } from "./knowledge-engine/ingestion/parseDocument";
-import { AIProvider } from "./ai/providers/AIProvider";
-import { ClaudeProvider } from "./ai/providers/ClaudeProvider";
-import { GroqProvider } from "./ai/providers/GroqProvider";
-import { ClaudeConceptExtractor } from "./ai/extractors/ConceptExtractorService";
+import { parseDocument } from "../knowledge-engine/ingestion/parseDocument";
+import { AIProvider } from "../ai/providers/AIProvider";
+import { ClaudeProvider } from "../ai/providers/ClaudeProvider";
+import { GroqProvider } from "../ai/providers/GroqProvider";
+import { ClaudeConceptExtractor } from "../ai/extractors/ConceptExtractorService";
 import {
   saveRawExtraction,
-} from "./knowledge-engine/ingestion";
+} from "../knowledge-engine/ingestion";
 
 async function main() {
   const document = await parseDocument(

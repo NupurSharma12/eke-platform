@@ -1,4 +1,4 @@
-import { ParsedDocument } from "./parsed-document";
+import { ParsedDocument } from "../document/parsed-document";
 
 export type ImageMediaType = "image/jpeg" | "image/png";
 

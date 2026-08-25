@@ -59,16 +59,36 @@ const defaultSettings: Settings = {
   soundEffects: true,
 };
 
+/**
+ * DEV-ONLY AUTH BYPASS — remove this block (and the matching guards
+ * below and the NEXT_PUBLIC_DEV_BYPASS_AUTH line in .env.local) once
+ * Supabase auth is reachable again. Requires both a non-production
+ * build AND an explicit opt-in flag, so it can never activate in a
+ * production build and never activates in dev by accident.
+ */
+const DEV_BYPASS_AUTH =
+  process.env.NODE_ENV !== 'production' &&
+  process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true';
+
+const DEV_CHILD_PROFILE: ChildProfile = {
+  id: 'dev-bypass-child',
+  name: 'Dev Tester',
+  avatar: 'fox',
+  color: '#6366f1',
+};
+
 const AppContext = createContext<AppState | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profiles, setProfiles] = useState<ChildProfile[]>([]);
-  const [activeChild, setActiveChild] = useState<ChildProfile | null>(null);
+  const [activeChild, setActiveChild] = useState<ChildProfile | null>(
+    DEV_BYPASS_AUTH ? DEV_CHILD_PROFILE : null
+  );
   const [progress, setProgress] = useState<Progress | null>(null);
   const [badges, setBadges] = useState<string[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!DEV_BYPASS_AUTH);
 
   // load settings from localStorage
   useEffect(() => {
@@ -88,6 +108,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // auth listener
   useEffect(() => {
+    if (DEV_BYPASS_AUTH) return;
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null);
       if (!data.session) setLoading(false);
@@ -107,10 +128,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (DEV_BYPASS_AUTH) return;
     if (user) loadProfiles(user.id);
   }, [user, loadProfiles]);
 
   const refreshProgress = useCallback(async () => {
+    if (DEV_BYPASS_AUTH) return;
     if (!activeChild) return;
     const { data } = await supabase.from('progress').select('*').eq('child_id', activeChild.id).maybeSingle();
     if (data) setProgress(data as Progress);
@@ -151,6 +174,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const recordQuiz = async (subject: string, topic: string, score: number, total: number, difficulty: number) => {
+    if (DEV_BYPASS_AUTH) return;
     if (!activeChild) return;
     const pct = total > 0 ? (score / total) * 100 : 0;
     const xpEarned = Math.round(score * 10 + (pct >= 80 ? 20 : 0));

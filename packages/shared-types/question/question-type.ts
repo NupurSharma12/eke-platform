@@ -1,4 +1,4 @@
-import { QuestionTemplate } from "./concept";
+import { QuestionTemplate } from "../concept/concept";
 
 /**
  * Reuses QuestionTemplate's existing type union rather than

@@ -88,6 +88,59 @@ test("findSuitablePattern returns null when nothing matches the request", () => 
   assert.equal(match, null);
 });
 
+test("findSuitablePattern matches a template that describes a visual (shaded region) — visual patterns are legitimate evidence, not skipped", () => {
+  const shadedRegionPattern: QuestionPattern = {
+    id: "fractions::CMO-Sample-Paper-for-Class-5.pdf::depth-challenge",
+    canonicalConceptId: "fractions",
+    sourceDocumentId: "CMO-Sample-Paper-for-Class-5.pdf",
+    contribution: "depth-challenge",
+    questionTemplates: [
+      {
+        type: "mcq",
+        description: "What is the fraction represented by the shaded region?",
+        bloomLevel: "understand",
+        recommendedDifficulty: "grade",
+      },
+    ],
+    extractedAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  const match = findSuitablePattern([shadedRegionPattern], {
+    conceptId: "fractions",
+    difficulty: "grade",
+    questionType: "mcq",
+  });
+
+  assert.ok(match);
+  assert.equal(match?.pattern.id, shadedRegionPattern.id);
+});
+
+test("findSuitablePattern matches a template typed 'visual'", () => {
+  const visualTypePattern: QuestionPattern = {
+    id: "fractions::worksheet.pdf::question-pattern",
+    canonicalConceptId: "fractions",
+    sourceDocumentId: "worksheet.pdf",
+    contribution: "question-pattern",
+    questionTemplates: [
+      {
+        type: "visual",
+        description: "Compare the two amounts shown.",
+        bloomLevel: "understand",
+        recommendedDifficulty: "grade",
+      },
+    ],
+    extractedAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  const match = findSuitablePattern([visualTypePattern], {
+    conceptId: "fractions",
+    difficulty: "grade",
+  });
+
+  assert.ok(match);
+  assert.equal(match?.template.type, "visual");
+});
+
 test("findSuitablePattern restricts to explicit patternIds when given", () => {
   const otherPattern: QuestionPattern = {
     ...olympiadPattern,
@@ -147,6 +200,36 @@ test("buildBlueprint never labels an llm-inferred blueprint as evidence-derived"
 
   assert.equal(blueprint.origin, "llm-inferred");
   assert.deepEqual(blueprint.sourcePatternIds, []);
+});
+
+test("buildBlueprint is evidence-derived from a visual pattern — a missing original diagram doesn't block using the pattern as inspiration", () => {
+  const fractions = concept({ id: "fractions", name: "Fractions" });
+  const shadedRegionPattern: QuestionPattern = {
+    id: "fractions::CMO-Sample-Paper-for-Class-5.pdf::depth-challenge",
+    canonicalConceptId: "fractions",
+    sourceDocumentId: "CMO-Sample-Paper-for-Class-5.pdf",
+    contribution: "depth-challenge",
+    questionTemplates: [
+      {
+        type: "mcq",
+        description: "What is the fraction represented by the shaded region?",
+        bloomLevel: "understand",
+        recommendedDifficulty: "grade",
+      },
+    ],
+    extractedAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  const blueprint = buildBlueprint(
+    fractions,
+    { conceptId: "fractions", difficulty: "grade", questionType: "mcq" },
+    [shadedRegionPattern],
+    "2026-02-01T00:00:00.000Z"
+  );
+
+  assert.equal(blueprint.origin, "evidence-derived");
+  assert.deepEqual(blueprint.sourcePatternIds, [shadedRegionPattern.id]);
+  assert.equal(blueprint.description, shadedRegionPattern.questionTemplates[0].description);
 });
 
 test("buildBlueprint is pure/deterministic given the same inputs", () => {

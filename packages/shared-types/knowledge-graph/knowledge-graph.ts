@@ -1,4 +1,4 @@
-import { Concept } from "./concept";
+import { Concept } from "../concept/concept";
 
 export type RelationshipType =
   | "prerequisite"
