@@ -39,12 +39,12 @@ async function main() {
         }
       }
     });
-    console.log(`attempt ${attempt}: ${questions.length} questions, types so far: ${[...allTypesSeen].join(", ") || "(none)"}`);
+    console.log(`attempt ${attempt}: ${questions.length} questions, types so far: ${Array.from(allTypesSeen).join(", ") || "(none)"}`);
     if (foundUnsupported) {
       console.log("FOUND UNSUPPORTED TYPE, stopping.");
       return;
     }
   }
-  console.log("\nNo unsupported visualSpec.type reproduced. All types seen:", [...allTypesSeen]);
+  console.log("\nNo unsupported visualSpec.type reproduced. All types seen:", Array.from(allTypesSeen));
 }
 main().catch((e) => { console.error(e); process.exit(1); });
