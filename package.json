@@ -39,6 +39,8 @@
     "test:gemini-provider": "tsx tests/geminiProvider.test.ts",
     "test:retry": "tsx tests/withRetry.test.ts",
     "test:chapter-registry": "tsx tests/loadChapterRegistry.test.ts",
+    "test:resolve-chapter-concepts": "tsx tests/resolveChapterConcepts.test.ts",
+    "test:exam-scope": "tsx tests/resolveExamScope.test.ts",
     "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts",
     "generate:question": "tsx packages/generateQuestion.ts"
   },
