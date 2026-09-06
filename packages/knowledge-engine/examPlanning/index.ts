@@ -4,3 +4,4 @@ export * from "./PendingChapterSelectedError";
 export * from "./examBlueprint";
 export * from "./validateExamBlueprint";
 export * from "./discoverExamBlueprint";
+export * from "./generatePracticePaper";
