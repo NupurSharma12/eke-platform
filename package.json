@@ -41,6 +41,7 @@
     "test:chapter-registry": "tsx tests/loadChapterRegistry.test.ts",
     "test:resolve-chapter-concepts": "tsx tests/resolveChapterConcepts.test.ts",
     "test:exam-scope": "tsx tests/resolveExamScope.test.ts",
+    "test:exam-blueprint": "tsx tests/validateExamBlueprint.test.ts",
     "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts",
     "generate:question": "tsx packages/generateQuestion.ts"
   },

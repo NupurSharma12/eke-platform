@@ -195,7 +195,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
             className="bg-white rounded-3xl p-5 shadow-lg border-2 border-primary/5"
           >
-            <h3 className="font-bold mb-3" style={{ fontFamily: 'var(--font-fun)' }}>Today's Challenges</h3>
+            <h3 className="font-bold mb-3" style={{ fontFamily: 'var(--font-fun)' }}>Today&apos;s Challenges</h3>
             <div className="space-y-2">
               {[
                 { label: 'Daily Math', done: dailyDone.math, icon: Calculator },
