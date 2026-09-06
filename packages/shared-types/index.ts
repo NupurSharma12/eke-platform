@@ -22,5 +22,7 @@ export * from "./document/parsed-document";
 
 export * from "./curriculum/chapter";
 
+export * from "./assessment/assessment-structure-evidence";
+
 export * from "./future/ingestion-job";
 export * from "./future/curriculum-mapping";

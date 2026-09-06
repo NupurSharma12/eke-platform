@@ -16,6 +16,7 @@ import {
   parseImage,
   saveRawExtraction,
   saveSourceMetadata,
+  saveAssessmentStructureEvidence,
 } from "./knowledge-engine/ingestion";
 import { DiscoveredFile } from "./knowledge-engine/ingestion/findSupportedFiles";
 import { normalizeConcepts } from "./knowledge-engine/normalization";
@@ -39,8 +40,10 @@ import {
   GeminiProvider,
   ConceptExtractor,
   ClaudeConceptExtractor,
+  ClaudeAssessmentStructureExtractor,
   withRetry,
 } from "./ai";
+import { shouldExtractAssessmentStructure } from "./ai/extractors/AssessmentStructureExtractor";
 import {
   Concept,
   ConceptExtractionResult,
@@ -327,6 +330,37 @@ async function main() {
       extractor,
       force
     );
+
+    // Assessment structure evidence (observed question-type counts)
+    // is only extracted for document types that are themselves
+    // assessment documents — never for textbooks/worksheets/
+    // assignments, whose concept-extraction pass above is the only
+    // extraction they get. This is a separate LLM call from concept
+    // extraction and does not affect concepts/failures above.
+    if (shouldExtractAssessmentStructure(documentType)) {
+      const structureExtractor = new ClaudeAssessmentStructureExtractor(
+        provider
+      );
+
+      for (const file of files.filter((f) => f.kind === "pdf")) {
+        try {
+          const document = await parseDocument(file.absolutePath);
+          const evidence = await structureExtractor.extract(document);
+          const evidencePath = await saveAssessmentStructureEvidence(
+            evidence
+          );
+          console.log(
+            `Assessment structure evidence saved to: ${evidencePath}`
+          );
+        } catch (error) {
+          console.log(
+            `  - assessment structure extraction failed for ${file.absolutePath}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+        }
+      }
+    }
 
     const contributions: SourceContribution[] = classifyDocument(documentType);
 

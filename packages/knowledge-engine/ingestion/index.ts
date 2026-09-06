@@ -5,4 +5,5 @@ export * from "./findPdfFiles";
 export * from "./findSupportedFiles";
 export * from "./extractZip";
 export * from "./saveSourceMetadata";
+export * from "./saveAssessmentStructureEvidence";
 //export * from "./uploadDocument";
