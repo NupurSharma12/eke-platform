@@ -5,3 +5,5 @@ export * from "./examBlueprint";
 export * from "./validateExamBlueprint";
 export * from "./discoverExamBlueprint";
 export * from "./generatePracticePaper";
+export * from "./generationSourcePolicy";
+export * from "./loadAllowedPatternIds";

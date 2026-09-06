@@ -44,6 +44,7 @@
     "test:exam-blueprint": "tsx tests/validateExamBlueprint.test.ts",
     "test:discover-blueprint": "tsx tests/discoverExamBlueprint.test.ts",
     "test:practice-paper": "tsx tests/generatePracticePaper.test.ts",
+    "test:source-policy": "tsx tests/resolveAllowedPatternIds.test.ts",
     "test:assessment-structure": "tsx tests/assessmentStructureExtractor.test.ts",
     "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts",
     "generate:question": "tsx packages/generateQuestion.ts"
