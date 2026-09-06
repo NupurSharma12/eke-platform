@@ -42,6 +42,7 @@
     "test:resolve-chapter-concepts": "tsx tests/resolveChapterConcepts.test.ts",
     "test:exam-scope": "tsx tests/resolveExamScope.test.ts",
     "test:exam-blueprint": "tsx tests/validateExamBlueprint.test.ts",
+    "test:discover-blueprint": "tsx tests/discoverExamBlueprint.test.ts",
     "test:assessment-structure": "tsx tests/assessmentStructureExtractor.test.ts",
     "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts",
     "generate:question": "tsx packages/generateQuestion.ts"
