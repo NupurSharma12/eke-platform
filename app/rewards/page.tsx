@@ -28,7 +28,7 @@ export default function RewardsPage() {
       const timer = setTimeout(() => setUnlockedBadge(null), 4000);
       return () => clearTimeout(timer);
     }
-  }, [badges.length]);
+  }, [badges]);
 
   if (!activeChild || !progress) {
     return <AppShell><div className="flex items-center justify-center min-h-[60vh]"><Mascot mood="thinking" size={80} /></div></AppShell>;
