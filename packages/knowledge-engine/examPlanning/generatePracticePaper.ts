@@ -8,6 +8,8 @@ import { generateQuestion } from "../../generateQuestion";
 import { QuestionPoolExhaustedError } from "../studentAttempts";
 import { ExamScope } from "./resolveExamScope";
 import { ExamBlueprint } from "./examBlueprint";
+import { GenerationSourcePolicy } from "./generationSourcePolicy";
+import { loadAllowedPatternIds } from "./loadAllowedPatternIds";
 
 /**
  * True for the two failure shapes generateQuestion throws that
@@ -27,6 +29,13 @@ import { ExamBlueprint } from "./examBlueprint";
  * implementation might throw. These indicate a programmer or
  * configuration error, not a normal shortfall, and must not be
  * silently swallowed slot-by-slot — see the catch block below.
+ *
+ * Also true for generateQuestion's "No allowed QuestionPattern
+ * found for concept" — thrown only when this orchestrator supplied
+ * an explicit source-policy patternIds allowlist and nothing in it
+ * was suitable. That is exactly the "explicit policy, no match"
+ * shortfall this milestone requires: the slot is skipped, never
+ * silently filled by an ungrounded llm-inferred question.
  */
 function isExpectedGenerationShortfall(error: unknown): boolean {
   if (error instanceof QuestionPoolExhaustedError) {
@@ -34,7 +43,8 @@ function isExpectedGenerationShortfall(error: unknown): boolean {
   }
   return (
     error instanceof Error &&
-    error.message.startsWith("No cached question found for concept")
+    (error.message.startsWith("No cached question found for concept") ||
+      error.message.startsWith("No allowed QuestionPattern found for concept"))
   );
 }
 
@@ -100,21 +110,33 @@ export interface PracticePaper {
  * absorbed as a shortfall slot-by-slot. See
  * isExpectedGenerationShortfall below for the exact distinction.
  *
- * Deliberately NOT addressed here (see the accompanying
- * investigation): source/evidence-policy filtering of which
- * QuestionPattern may inform a given question. generateQuestion's
- * existing pattern-loading behavior — including its willingness to
- * fall back to an llm-inferred blueprint when no suitable pattern
- * exists — is used entirely unchanged. This orchestration layer
- * provides no source/style isolation; that is a known, separate
- * follow-up.
+ * Generation source policy (optional, via options.sourcePolicy): if
+ * supplied, this orchestrator resolves the policy-allowed
+ * QuestionPattern ids for each slot's concept (via
+ * loadAllowedPatternIds, memoized per concept for the whole paper —
+ * patterns/metadata don't change mid-generation, so this avoids
+ * redundant I/O across slots that reuse the same concept) and
+ * passes them into generateQuestion as an explicit patternIds
+ * allowlist. This is the sole source-policy enforcement point;
+ * findSuitablePattern and generateQuestion's core flow remain
+ * exactly as generic as before — the only behavior change is that
+ * generateQuestion now throws instead of silently falling back to
+ * an ungrounded "llm-inferred" question when an explicit allowlist
+ * was supplied and nothing in it matched, and that throw is caught
+ * here as an ordinary shortfall (see isExpectedGenerationShortfall).
+ * When options.sourcePolicy is omitted, no patternIds are ever
+ * passed, and every Step 6 behavior (round-robin, shortfall
+ * handling, exclusions, etc.) is completely unchanged.
  */
 export async function generatePracticePaper(
   scope: ExamScope,
   blueprint: ExamBlueprint,
   generator: QuestionGenerator,
   reviewer: QuestionReviewer,
-  options: { excludeQuestionIds?: string[] } = {}
+  options: {
+    excludeQuestionIds?: string[];
+    sourcePolicy?: GenerationSourcePolicy;
+  } = {}
 ): Promise<PracticePaper> {
   if (scope.eligibleConceptIds.length === 0) {
     throw new Error(
@@ -124,6 +146,21 @@ export async function generatePracticePaper(
 
   const excludeQuestionIds = new Set(options.excludeQuestionIds ?? []);
   let conceptIndex = 0;
+
+  const allowedPatternIdsByConcept = new Map<string, string[]>();
+
+  async function resolvePatternIds(conceptId: string): Promise<string[] | undefined> {
+    if (!options.sourcePolicy) {
+      return undefined;
+    }
+    const cached = allowedPatternIdsByConcept.get(conceptId);
+    if (cached) {
+      return cached;
+    }
+    const resolved = await loadAllowedPatternIds(conceptId, options.sourcePolicy);
+    allowedPatternIdsByConcept.set(conceptId, resolved);
+    return resolved;
+  }
 
   const allocations: PracticePaperAllocationResult[] = [];
 
@@ -135,12 +172,15 @@ export async function generatePracticePaper(
         scope.eligibleConceptIds[conceptIndex % scope.eligibleConceptIds.length];
       conceptIndex += 1;
 
+      const patternIds = await resolvePatternIds(conceptId);
+
       try {
         const question = await generateQuestion(
           {
             conceptId,
             questionType: allocation.questionType,
             difficulty: allocation.difficulty,
+            ...(patternIds !== undefined ? { patternIds } : {}),
           },
           generator,
           reviewer,

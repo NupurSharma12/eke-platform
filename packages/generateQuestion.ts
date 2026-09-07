@@ -100,6 +100,15 @@ export const DEFAULT_POOL_SIZE = 15;
  * a function parameter rather than a QuestionGenerationRequest
  * field, per that type's own "no student-specific fields" contract.
  * It only narrows step 1's cache lookup; steps 2-5 are untouched.
+ *
+ * `request.patternIds`, when explicitly supplied (an allowlist —
+ * possibly empty), also changes step 2's fallback: if nothing in
+ * that allowlist is a suitable pattern, this throws rather than
+ * silently generating an ungrounded "llm-inferred" question, so an
+ * explicit source policy (see examPlanning/generatePracticePaper)
+ * can never be bypassed by the existing fallback. Omitting
+ * patternIds entirely preserves the original, unrestricted
+ * llm-inferred fallback exactly as before.
  */
 export async function generateQuestion(
   request: QuestionGenerationRequest,
@@ -167,6 +176,23 @@ export async function generateQuestion(
     patterns,
     new Date().toISOString()
   );
+
+  // request.patternIds !== undefined means the caller supplied an
+  // explicit pattern allowlist (a source policy), as opposed to no
+  // restriction at all (undefined). When such an allowlist is
+  // supplied and none of it matched (blueprint fell back to
+  // "llm-inferred"), an explicit source policy must not be silently
+  // bypassed by an ungrounded LLM-inferred question — so this throws
+  // instead of proceeding to generate one. Every existing caller
+  // never sets request.patternIds, so this branch never fires for
+  // them; this is strictly additive. The existing "no patternIds
+  // supplied at all" fallback to llm-inferred generation is
+  // completely unchanged.
+  if (request.patternIds !== undefined && blueprint.origin === "llm-inferred") {
+    throw new Error(
+      `No allowed QuestionPattern found for concept "${request.conceptId}" matching the requested type/difficulty within the supplied patternIds allowlist.`
+    );
+  }
 
   const poolSize = options.poolSize ?? DEFAULT_POOL_SIZE;
 

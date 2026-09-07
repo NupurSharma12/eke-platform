@@ -1,16 +1,30 @@
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
 
-import { GeneratedQuestionDraft, QuestionBlueprint } from "../packages/shared-types";
+import {
+  GeneratedQuestionDraft,
+  QuestionBlueprint,
+  QuestionPattern,
+  SourceMetadata,
+} from "../packages/shared-types";
 import { QuestionGenerator, QuestionReviewer, QuestionReviewResult } from "../packages/ai";
 import {
   saveGeneratedQuestion,
   getGeneratedQuestionPath,
 } from "../packages/knowledge-engine/questionBank";
 import {
+  saveQuestionPattern,
+  getQuestionPatternPath,
+} from "../packages/knowledge-engine/canonicalization";
+import {
+  saveSourceMetadata,
+  getSourceMetadataPath,
+} from "../packages/knowledge-engine/ingestion";
+import {
   generatePracticePaper,
   ExamScope,
   ExamBlueprint,
+  GenerationSourcePolicy,
 } from "../packages/knowledge-engine/examPlanning";
 
 let passed = 0;
@@ -130,6 +144,36 @@ async function main() {
         generatedIds.push(q.id);
       }
     }
+  }
+
+  const seededPatternPaths: string[] = [];
+  const seededMetadataPaths: string[] = [];
+
+  async function seedPattern(pattern: QuestionPattern): Promise<void> {
+    seededPatternPaths.push(
+      getQuestionPatternPath(
+        pattern.canonicalConceptId,
+        pattern.sourceDocumentId,
+        pattern.contribution
+      )
+    );
+    await saveQuestionPattern(pattern);
+  }
+
+  async function seedMetadata(metadata: SourceMetadata): Promise<void> {
+    seededMetadataPaths.push(getSourceMetadataPath(metadata.sourceDocumentId));
+    await saveSourceMetadata(metadata);
+  }
+
+  async function cleanupSeeded(): Promise<void> {
+    for (const path of seededPatternPaths) {
+      await fs.rm(path, { force: true });
+    }
+    for (const path of seededMetadataPaths) {
+      await fs.rm(path, { force: true });
+    }
+    seededPatternPaths.length = 0;
+    seededMetadataPaths.length = 0;
   }
 
   try {
@@ -580,8 +624,317 @@ async function main() {
         CONCEPT_B,
       ]);
     });
+
+    await test("no sourcePolicy: Step 6 behavior is fully preserved (no patternIds ever passed)", async () => {
+      const generator = createPoolGenerator(2);
+      const reviewer = createApprovingReviewer();
+
+      const blueprint: ExamBlueprint = {
+        allocations: [
+          { questionType: "reasoning", difficulty: "foundation", count: 2, marksEach: 1 },
+        ],
+      };
+
+      const paper = await generatePracticePaper(
+        scope([CONCEPT_A]),
+        blueprint,
+        generator,
+        reviewer
+        // no options.sourcePolicy at all
+      );
+      trackAll(paper);
+      await cleanupGenerated();
+
+      assert.equal(paper.allocations[0].questions.length, 2);
+      // Nothing evidence-derived was possible here (no patterns
+      // seeded for this combo), so both are llm-inferred — exactly
+      // Step 6's original, unrestricted fallback behavior.
+      assert.ok(paper.allocations[0].questions.every((q) => q.origin === "llm-inferred"));
+    });
+
+    await test("sourcePolicy: an explicitly allowed pattern is passed through and used (evidence-derived)", async () => {
+      const allowedPattern: QuestionPattern = {
+        id: `${CONCEPT_A}::__test-source-policy-allowed__.pdf::question-pattern`,
+        canonicalConceptId: CONCEPT_A,
+        sourceDocumentId: "__test-source-policy-allowed__.pdf",
+        contribution: "question-pattern",
+        questionTemplates: [
+          {
+            type: "fill-blanks",
+            description: "A policy-allowed pattern for fractions.",
+            bloomLevel: "understand",
+            recommendedDifficulty: "advanced",
+          },
+        ],
+        extractedAt: "2026-01-01T00:00:00.000Z",
+      };
+      await seedPattern(allowedPattern);
+      await seedMetadata({
+        sourceDocumentId: "__test-source-policy-allowed__.pdf",
+        title: "Allowed Worksheet",
+        documentType: "worksheet",
+        contributions: ["question-pattern"],
+      });
+
+      const generator = createPoolGenerator(1);
+      const reviewer = createApprovingReviewer();
+
+      const blueprint: ExamBlueprint = {
+        allocations: [
+          { questionType: "fill-blanks", difficulty: "advanced", count: 1, marksEach: 1 },
+        ],
+      };
+
+      const policy: GenerationSourcePolicy = {
+        allowedContributions: ["question-pattern"],
+      };
+
+      try {
+        const paper = await generatePracticePaper(
+          scope([CONCEPT_A]),
+          blueprint,
+          generator,
+          reviewer,
+          { sourcePolicy: policy }
+        );
+        trackAll(paper);
+        await cleanupGenerated();
+
+        assert.equal(paper.allocations[0].questions.length, 1);
+        assert.equal(paper.allocations[0].questions[0].origin, "evidence-derived");
+        assert.deepEqual(paper.allocations[0].questions[0].sourcePatternIds, [
+          allowedPattern.id,
+        ]);
+      } finally {
+        await cleanupSeeded();
+      }
+    });
+
+    await test("sourcePolicy: a matching but explicitly disallowed pattern is not selected in favor of an allowed one", async () => {
+      const disallowedButMatching: QuestionPattern = {
+        id: `${CONCEPT_A}::__test-source-policy-disallowed__.pdf::depth-challenge`,
+        canonicalConceptId: CONCEPT_A,
+        sourceDocumentId: "__test-source-policy-disallowed__.pdf",
+        contribution: "depth-challenge",
+        questionTemplates: [
+          {
+            type: "word-problem",
+            description: "An Olympiad-sourced pattern that would otherwise match.",
+            bloomLevel: "analyze",
+            recommendedDifficulty: "olympiad",
+          },
+        ],
+        extractedAt: "2026-01-01T00:00:00.000Z",
+      };
+      const allowedPattern: QuestionPattern = {
+        id: `${CONCEPT_A}::__test-source-policy-allowed-2__.pdf::question-pattern`,
+        canonicalConceptId: CONCEPT_A,
+        sourceDocumentId: "__test-source-policy-allowed-2__.pdf",
+        contribution: "question-pattern",
+        questionTemplates: [
+          {
+            type: "word-problem",
+            description: "A policy-allowed pattern that also matches.",
+            bloomLevel: "understand",
+            recommendedDifficulty: "olympiad",
+          },
+        ],
+        extractedAt: "2026-01-01T00:00:00.000Z",
+      };
+      await seedPattern(disallowedButMatching);
+      await seedPattern(allowedPattern);
+      await seedMetadata({
+        sourceDocumentId: "__test-source-policy-disallowed__.pdf",
+        title: "Disallowed Olympiad Source",
+        documentType: "olympiad",
+        contributions: ["depth-challenge"],
+      });
+      await seedMetadata({
+        sourceDocumentId: "__test-source-policy-allowed-2__.pdf",
+        title: "Allowed Worksheet 2",
+        documentType: "worksheet",
+        contributions: ["question-pattern"],
+      });
+
+      const generator = createPoolGenerator(1);
+      const reviewer = createApprovingReviewer();
+
+      const blueprint: ExamBlueprint = {
+        allocations: [
+          { questionType: "word-problem", difficulty: "olympiad", count: 1, marksEach: 1 },
+        ],
+      };
+
+      const policy: GenerationSourcePolicy = {
+        allowedContributions: ["question-pattern"],
+      };
+
+      try {
+        const paper = await generatePracticePaper(
+          scope([CONCEPT_A]),
+          blueprint,
+          generator,
+          reviewer,
+          { sourcePolicy: policy }
+        );
+        trackAll(paper);
+        await cleanupGenerated();
+
+        assert.equal(paper.allocations[0].questions.length, 1);
+        assert.deepEqual(paper.allocations[0].questions[0].sourcePatternIds, [
+          allowedPattern.id,
+        ]);
+        assert.ok(
+          !paper.allocations[0].questions[0].sourcePatternIds.includes(
+            disallowedButMatching.id
+          )
+        );
+      } finally {
+        await cleanupSeeded();
+      }
+    });
+
+    await test("sourcePolicy: no suitable pattern within the allowed set becomes a shortfall (no llm-inferred fallback), and subsequent allocations still execute", async () => {
+      // Only pattern for this concept is a "reasoning" template —
+      // allowed by contribution, but does not match the "fill-blanks"
+      // request in the first allocation.
+      const onlyPattern: QuestionPattern = {
+        id: `${CONCEPT_A}::__test-source-policy-no-match__.pdf::question-pattern`,
+        canonicalConceptId: CONCEPT_A,
+        sourceDocumentId: "__test-source-policy-no-match__.pdf",
+        contribution: "question-pattern",
+        questionTemplates: [
+          {
+            type: "reasoning",
+            description: "Matches the second allocation, not the first.",
+            bloomLevel: "understand",
+            recommendedDifficulty: "grade",
+          },
+        ],
+        extractedAt: "2026-01-01T00:00:00.000Z",
+      };
+      await seedPattern(onlyPattern);
+      await seedMetadata({
+        sourceDocumentId: "__test-source-policy-no-match__.pdf",
+        title: "Allowed Worksheet 3",
+        documentType: "worksheet",
+        contributions: ["question-pattern"],
+      });
+
+      const generator = createPoolGenerator(1);
+      const reviewer = createApprovingReviewer();
+
+      const blueprint: ExamBlueprint = {
+        allocations: [
+          // No pattern in the allowed set matches fill-blanks -> shortfall.
+          { questionType: "fill-blanks", difficulty: "grade", count: 1, marksEach: 1 },
+          // The only allowed pattern matches this one -> succeeds.
+          { questionType: "reasoning", difficulty: "grade", count: 1, marksEach: 1 },
+        ],
+      };
+
+      const policy: GenerationSourcePolicy = {
+        allowedContributions: ["question-pattern"],
+      };
+
+      try {
+        const paper = await generatePracticePaper(
+          scope([CONCEPT_A]),
+          blueprint,
+          generator,
+          reviewer,
+          { sourcePolicy: policy }
+        );
+        trackAll(paper);
+        await cleanupGenerated();
+
+        assert.equal(paper.allocations[0].requested, 1);
+        assert.equal(paper.allocations[0].questions.length, 0);
+        // No llm-inferred question was produced for the shortfall slot.
+        assert.equal(
+          paper.allocations[0].questions.some((q) => q.origin === "llm-inferred"),
+          false
+        );
+
+        assert.equal(paper.allocations[1].requested, 1);
+        assert.equal(paper.allocations[1].questions.length, 1);
+        assert.equal(paper.allocations[1].questions[0].origin, "evidence-derived");
+      } finally {
+        await cleanupSeeded();
+      }
+    });
+
+    await test("sourcePolicy: caller-provided excludeQuestionIds and exclusion-set growth across slots still work", async () => {
+      const allowedPattern: QuestionPattern = {
+        id: `${CONCEPT_A}::__test-source-policy-exclusions__.pdf::question-pattern`,
+        canonicalConceptId: CONCEPT_A,
+        sourceDocumentId: "__test-source-policy-exclusions__.pdf",
+        contribution: "question-pattern",
+        questionTemplates: [
+          {
+            type: "olympiad",
+            description: "Allowed pattern used across two slots.",
+            bloomLevel: "understand",
+            recommendedDifficulty: "advanced",
+          },
+        ],
+        extractedAt: "2026-01-01T00:00:00.000Z",
+      };
+      await seedPattern(allowedPattern);
+      await seedMetadata({
+        sourceDocumentId: "__test-source-policy-exclusions__.pdf",
+        title: "Allowed Worksheet 4",
+        documentType: "worksheet",
+        contributions: ["question-pattern"],
+      });
+
+      // Pool of 2 fresh drafts, so a second slot for the identical
+      // combo is served from the same pool rather than colliding.
+      const generator = createPoolGenerator(2);
+      const reviewer = createApprovingReviewer();
+
+      const blueprint: ExamBlueprint = {
+        allocations: [
+          { questionType: "olympiad", difficulty: "advanced", count: 2, marksEach: 1 },
+        ],
+      };
+
+      const policy: GenerationSourcePolicy = {
+        allowedContributions: ["question-pattern"],
+      };
+
+      try {
+        const paper = await generatePracticePaper(
+          scope([CONCEPT_A]),
+          blueprint,
+          generator,
+          reviewer,
+          {
+            sourcePolicy: policy,
+            // An initial exclusion unrelated to anything cached for
+            // this combo: proves the caller-provided exclusion list
+            // is still honored (doesn't error, doesn't get ignored)
+            // even though nothing in the bank matches it yet.
+            excludeQuestionIds: ["__test-source-policy-unrelated-exclusion__"],
+          }
+        );
+        trackAll(paper);
+        await cleanupGenerated();
+
+        const questions = paper.allocations[0].questions;
+        assert.equal(questions.length, 2);
+        // ...and the two freshly generated questions are themselves
+        // distinct, proving the first's id was added to the
+        // exclusion set before the second slot ran.
+        assert.notEqual(questions[0].id, questions[1].id);
+        assert.ok(questions.every((q) => q.origin === "evidence-derived"));
+      } finally {
+        await cleanupSeeded();
+      }
+    });
   } finally {
     await cleanupGenerated();
+    await cleanupSeeded();
   }
 
   console.log(`\n${passed} passed`);
