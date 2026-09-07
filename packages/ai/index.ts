@@ -1,5 +1,7 @@
 export * from "./extractors/ConceptExtractor";
 export * from "./extractors/ConceptExtractorService";
+export * from "./extractors/AssessmentStructureExtractor";
+export * from "./extractors/AssessmentStructureExtractorService";
 
 export * from "./generators/QuestionGenerator";
 export * from "./generators/QuestionGeneratorService";

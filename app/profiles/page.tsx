@@ -130,7 +130,7 @@ export default function ProfilesPage() {
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block">Child's Name</label>
+                  <label className="text-sm font-medium mb-1.5 block">Child&apos;s Name</label>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}

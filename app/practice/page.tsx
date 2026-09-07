@@ -223,7 +223,7 @@ export default function PracticePage() {
 
           {poolExhausted && (
             <div className="bg-secondary/10 text-foreground rounded-xl p-3 text-sm font-medium">
-              🎉 You've attempted every question available for this concept and difficulty. Try a different concept or difficulty!
+              🎉 You&apos;ve attempted every question available for this concept and difficulty. Try a different concept or difficulty!
             </div>
           )}
         </div>

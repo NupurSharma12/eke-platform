@@ -111,7 +111,7 @@ export default function LandingPage() {
         >
           <Mascot mood="celebrating" size={80} />
           <h2 className="text-3xl font-bold mt-4 mb-3" style={{ fontFamily: 'var(--font-fun)' }}>Ready to Begin?</h2>
-          <p className="text-lg mb-6 opacity-90">Create a parent account, set up your child's profile, and start the adventure today!</p>
+          <p className="text-lg mb-6 opacity-90">Create a parent account, set up your child&apos;s profile, and start the adventure today!</p>
           <Link href="/login" className="inline-flex items-center gap-2 bg-white text-primary px-8 py-4 rounded-2xl text-lg font-bold hover:scale-105 transition-transform">
             Get Started Free <ArrowRight className="w-5 h-5" />
           </Link>

@@ -91,7 +91,7 @@ export default function ParentPage() {
           <div className="absolute top-0 right-0 text-9xl opacity-20 -translate-y-1/4">📊</div>
           <div className="relative">
             <h1 className="text-2xl lg:text-3xl font-bold" style={{ fontFamily: 'var(--font-fun)' }}>Parent Dashboard</h1>
-            <p className="opacity-90 mt-1">Track {activeChild.name}'s learning progress</p>
+            <p className="opacity-90 mt-1">Track {activeChild.name}&apos;s learning progress</p>
           </div>
         </div>
 

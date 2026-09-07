@@ -127,7 +127,7 @@ export default function SettingsPage() {
         {/* Account */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border-2 border-primary/5">
           <h2 className="text-lg font-bold mb-3" style={{ fontFamily: 'var(--font-fun)' }}>Account</h2>
-          <p className="text-sm text-muted-foreground mb-4">Signed in as {activeChild.name}'s parent</p>
+          <p className="text-sm text-muted-foreground mb-4">Signed in as {activeChild.name}&apos;s parent</p>
           <button
             onClick={async () => { await signOut(); router.push('/'); }}
             className="bg-destructive/10 text-destructive px-4 py-2 rounded-xl text-sm font-medium hover:bg-destructive/20 transition-colors"

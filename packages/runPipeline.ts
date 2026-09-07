@@ -5,7 +5,11 @@ dotenv.config({
 });
 
 import { parseDocument } from "./knowledge-engine/ingestion/parseDocument";
-import { saveRawExtraction, saveSourceMetadata } from "./knowledge-engine/ingestion";
+import {
+  saveRawExtraction,
+  saveSourceMetadata,
+  saveAssessmentStructureEvidence,
+} from "./knowledge-engine/ingestion";
 import { normalizeConcepts } from "./knowledge-engine/normalization";
 import {
   canonicalizeConcepts,
@@ -24,6 +28,8 @@ import { AIProvider } from "./ai/providers/AIProvider";
 import { ClaudeProvider } from "./ai/providers/ClaudeProvider";
 import { GroqProvider } from "./ai/providers/GroqProvider";
 import { ClaudeConceptExtractor } from "./ai/extractors/ConceptExtractorService";
+import { ClaudeAssessmentStructureExtractor } from "./ai/extractors/AssessmentStructureExtractorService";
+import { shouldExtractAssessmentStructure } from "./ai/extractors/AssessmentStructureExtractor";
 import { DocumentType, DOCUMENT_TYPES, SourceContribution } from "./shared-types";
 
 /**
@@ -82,6 +88,21 @@ async function main() {
   );
 
   console.log(`Raw extraction saved to: ${rawPath}`);
+
+  // Assessment structure evidence (observed question-type counts)
+  // is a separate LLM call from concept extraction above, and only
+  // runs for document types that are themselves assessment
+  // documents — never for textbooks/worksheets/assignments.
+  if (shouldExtractAssessmentStructure(documentType)) {
+    const structureExtractor = new ClaudeAssessmentStructureExtractor(
+      provider
+    );
+
+    const evidence = await structureExtractor.extract(document);
+    const evidencePath = await saveAssessmentStructureEvidence(evidence);
+
+    console.log(`Assessment structure evidence saved to: ${evidencePath}`);
+  }
 
   const concepts = normalizeConcepts(extraction, document.id);
 
