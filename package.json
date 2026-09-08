@@ -35,6 +35,7 @@
     "test:question-reviewer": "tsx tests/questionReviewer.test.ts",
     "test:find-supported": "tsx tests/findSupportedFiles.test.ts",
     "test:parse-image": "tsx tests/parseImage.test.ts",
+    "test:parse-document": "tsx tests/parseDocument.test.ts",
     "test:image-provider": "tsx tests/imageCapableProvider.test.ts",
     "test:gemini-provider": "tsx tests/geminiProvider.test.ts",
     "test:retry": "tsx tests/withRetry.test.ts",
