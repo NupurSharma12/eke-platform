@@ -22,11 +22,29 @@ export async function parseDocument(
 
   const filename = path.basename(filePath);
 
+  // result.pages is the parser's own authoritative per-page split
+  // (each entry carries the page's real text and its 1-indexed
+  // `num`), already returned in page order — sorted defensively
+  // rather than assumed, since nothing about the library's contract
+  // guarantees order. This replaces the previous
+  // `result.text.split("\f")`, which silently collapsed to a single
+  // "page" for any PDF whose flattened text contains no form-feed
+  // characters (true of every real PDF checked so far) — result.text
+  // itself is untouched, only how `pages` is derived changes.
+  // Falls back to the whole flattened text as a single page only if
+  // the parser genuinely returned no per-page data at all (should
+  // not happen for a real PDF, but this keeps every document
+  // representable by at least one page rather than an empty array).
+  const pages =
+    result.pages.length > 0
+      ? [...result.pages].sort((a, b) => a.num - b.num).map((page) => page.text)
+      : [result.text];
+
   return {
     id: filename,
     filename,
     kind: "pdf",
     text: result.text,
-    pages: result.text.split("\f"),
+    pages,
   };
 }
