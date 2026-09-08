@@ -13,11 +13,7 @@ import { generatePracticePaper } from "@/packages/knowledge-engine/examPlanning/
 import { PendingChapterSelectedError } from "@/packages/knowledge-engine/examPlanning/PendingChapterSelectedError";
 import { ExamBlueprint } from "@/packages/knowledge-engine/examPlanning/examBlueprint";
 import {
-  AIProvider,
-  ClaudeProvider,
-  GroqProvider,
-  GeminiProvider,
-  resolveProviderName,
+  buildProviderChain,
   ClaudeQuestionGenerator,
   ClaudeQuestionReviewer,
 } from "@/packages/ai";
@@ -153,13 +149,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const providerName = resolveProviderName(process.env.AI_PROVIDER);
-    const provider: AIProvider =
-      providerName === "groq"
-        ? new GroqProvider()
-        : providerName === "gemini"
-        ? new GeminiProvider()
-        : new ClaudeProvider();
+    const provider = buildProviderChain();
 
     const generator = new ClaudeQuestionGenerator(provider);
     const reviewer = new ClaudeQuestionReviewer(provider);

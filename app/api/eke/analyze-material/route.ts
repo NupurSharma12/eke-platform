@@ -17,11 +17,7 @@ import { saveDocumentStructureCandidate } from "@/packages/knowledge-engine/inge
 // directly elsewhere (see generate-practice-paper/route.ts) — no
 // need for a specific-submodule import here.
 import {
-  AIProvider,
-  ClaudeProvider,
-  GroqProvider,
-  GeminiProvider,
-  resolveProviderName,
+  buildProviderChain,
   ClaudeDocumentStructureExtractor,
 } from "@/packages/ai";
 
@@ -74,13 +70,7 @@ export async function POST(request: NextRequest) {
   try {
     const document = await parseDocument(uploadedPath);
 
-    const providerName = resolveProviderName(process.env.AI_PROVIDER);
-    const provider: AIProvider =
-      providerName === "groq"
-        ? new GroqProvider()
-        : providerName === "gemini"
-        ? new GeminiProvider()
-        : new ClaudeProvider();
+    const provider = buildProviderChain();
 
     const extractor = new ClaudeDocumentStructureExtractor(provider);
     const candidate = await extractor.extract(document);

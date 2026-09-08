@@ -34,10 +34,7 @@ import {
   CANONICAL_GRAPH_FILENAME,
 } from "./knowledge-engine/graph";
 import {
-  AIProvider,
-  ClaudeProvider,
-  GroqProvider,
-  GeminiProvider,
+  buildProviderChain,
   ConceptExtractor,
   ClaudeConceptExtractor,
   ClaudeAssessmentStructureExtractor,
@@ -309,19 +306,21 @@ async function main() {
       }
     }
 
-    // Defaults to ClaudeProvider exactly as before Gemini existed —
-    // AI_PROVIDER unset or any value other than "groq"/"gemini"
-    // preserves today's behavior unchanged. Wrapped in withRetry so
-    // a rate-limited call (e.g. Gemini's free-tier
-    // RESOURCE_EXHAUSTED) is retried after the provider's own
-    // suggested delay instead of failing the file outright.
-    const provider: AIProvider = withRetry(
-      process.env.AI_PROVIDER === "groq"
-        ? new GroqProvider()
-        : process.env.AI_PROVIDER === "gemini"
-        ? new GeminiProvider()
-        : new ClaudeProvider()
-    );
+    // buildProviderChain() preserves this file's pre-existing
+    // single-provider behavior exactly when AI_PROVIDER_CHAIN isn't
+    // set (AI_PROVIDER unset or any value other than "groq"/"gemini"
+    // still defaults to Claude). Wrapped in withRetry, same as
+    // before this milestone, so a rate-limited call (e.g. Gemini's
+    // free-tier RESOURCE_EXHAUSTED) is retried after the provider's
+    // own suggested delay instead of failing the file outright — if
+    // AI_PROVIDER_CHAIN IS set, this wraps the whole resulting
+    // fallback chain in one more layer of retry, which is harmless:
+    // withFallback already only calls .generate() once per attempt,
+    // so an outer withRetry here just retries the *entire chain* on
+    // a rate-limit error that made it all the way through unhandled
+    // (each individual chain member is already separately retried
+    // inside buildProviderChain's own factories).
+    const provider = withRetry(buildProviderChain());
 
     const extractor = new ClaudeConceptExtractor(provider);
 
