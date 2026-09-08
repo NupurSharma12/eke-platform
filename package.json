@@ -53,6 +53,7 @@
     "test:curriculum-content": "tsx tests/curriculumContent.test.ts",
     "test:upload-document": "tsx tests/uploadDocument.test.ts",
     "test:upload-material-route": "tsx tests/uploadMaterialRoute.test.ts",
+    "test:analyze-material-route": "tsx tests/analyzeMaterialRoute.test.ts",
     "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts",
     "generate:question": "tsx packages/generateQuestion.ts"
   },

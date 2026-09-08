@@ -5,15 +5,18 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useApp } from '@/lib/app-context';
 import { AppShell } from '@/components/app-shell';
-import { UploadCloud, Loader2, CheckCircle2 } from 'lucide-react';
-import { DOCUMENT_TYPES, DocumentType, SourceMetadata } from '@/packages/shared-types';
+import { UploadCloud, Loader2, CheckCircle2, Sparkles, AlertCircle } from 'lucide-react';
+import { DOCUMENT_TYPES, DocumentType, SourceMetadata, DocumentStructureCandidate } from '@/packages/shared-types';
 
 /**
- * Registration-only: uploads a file to /api/eke/upload-material and
- * shows the resulting sourceDocumentId + status. Deliberately does
- * not show chapters/concepts/question patterns — parsing, chapter
- * detection, and concept extraction are all later milestones. See
- * app/api/eke/upload-material/route.ts's own doc comment.
+ * Upload + analyze, registration and candidate-structure-detection
+ * only: uploads a file to /api/eke/upload-material, then optionally
+ * calls /api/eke/analyze-material to detect candidate chapter/
+ * exercise page ranges. The candidate is always status: "pending" —
+ * this page never implies it's a confirmed Chapter, never offers
+ * confirm/reject/edit actions, and does not show concepts or
+ * question patterns. See DocumentStructureCandidate's own doc
+ * comment and ADR-006.
  */
 export default function UploadPage() {
   const { activeChild } = useApp();
@@ -28,6 +31,10 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ sourceDocumentId: string; sourceMetadata: SourceMetadata } | null>(null);
 
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [candidate, setCandidate] = useState<DocumentStructureCandidate | null>(null);
+
   useEffect(() => {
     if (!activeChild) router.push('/login');
   }, [activeChild, router]);
@@ -38,6 +45,8 @@ export default function UploadPage() {
     setUploading(true);
     setError(null);
     setResult(null);
+    setAnalyzeError(null);
+    setCandidate(null);
 
     try {
       const form = new FormData();
@@ -61,6 +70,33 @@ export default function UploadPage() {
       setError(err instanceof Error ? err.message : 'Failed to upload material.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const analyze = async () => {
+    if (!result || analyzing) return;
+
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    setCandidate(null);
+
+    try {
+      const res = await fetch('/api/eke/analyze-material', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceDocumentId: result.sourceDocumentId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to analyze the uploaded document.');
+      }
+
+      setCandidate(data.candidate);
+    } catch (err) {
+      setAnalyzeError(err instanceof Error ? err.message : 'Failed to analyze the uploaded document.');
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -149,7 +185,66 @@ export default function UploadPage() {
               <div className="text-sm text-muted-foreground">Status: Registered</div>
             </div>
           )}
+
+          {result && (
+            <button
+              onClick={analyze}
+              disabled={analyzing}
+              className="flex items-center justify-center gap-2 bg-secondary text-secondary-foreground px-6 py-3 rounded-2xl font-bold hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:hover:scale-100"
+            >
+              {analyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+              {analyzing ? 'Analyzing…' : 'Analyze Material'}
+            </button>
+          )}
+
+          {analyzeError && (
+            <div className="bg-destructive/10 text-destructive rounded-xl p-3 text-sm font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {analyzeError}
+            </div>
+          )}
         </div>
+
+        {candidate && (
+          <div className="bg-white rounded-3xl p-6 shadow-xl border-2 border-primary/10 space-y-4">
+            <div>
+              <h2 className="text-lg font-bold" style={{ fontFamily: 'var(--font-fun)' }}>Material Analysis</h2>
+              <p className="text-sm text-muted-foreground">
+                Candidate structure — needs review, not yet confirmed.
+              </p>
+            </div>
+
+            {candidate.ranges.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No structural ranges were detected.</p>
+            ) : (
+              <div className="space-y-3">
+                {candidate.ranges.map((range, i) => (
+                  <div key={i} className="rounded-2xl border-2 border-primary/10 p-4 space-y-1">
+                    <div className="text-xs font-bold uppercase tracking-wide text-primary">
+                      {range.kind === 'content' ? 'Content' : 'Exercise'}
+                    </div>
+                    <div className="font-semibold">
+                      Pages {range.startPage}–{range.endPage}
+                    </div>
+                    {range.chapterNumber !== undefined && (
+                      <div className="text-sm">Chapter {range.chapterNumber}</div>
+                    )}
+                    {range.chapterTitle && (
+                      <div className="text-sm font-medium">{range.chapterTitle}</div>
+                    )}
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Evidence: &ldquo;{range.evidence}&rdquo;
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground italic">
+              Structure review and confirmation will be available next.
+            </p>
+          </div>
+        )}
       </div>
     </AppShell>
   );
