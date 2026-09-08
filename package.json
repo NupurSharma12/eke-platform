@@ -47,6 +47,8 @@
     "test:practice-paper": "tsx tests/generatePracticePaper.test.ts",
     "test:source-policy": "tsx tests/resolveAllowedPatternIds.test.ts",
     "test:assessment-structure": "tsx tests/assessmentStructureExtractor.test.ts",
+    "test:document-structure": "tsx tests/documentStructureExtractor.test.ts",
+    "test:save-document-structure-candidate": "tsx tests/saveDocumentStructureCandidate.test.ts",
     "test:practice-paper-route": "tsx tests/generatePracticePaperRoute.test.ts",
     "test:curriculum-content": "tsx tests/curriculumContent.test.ts",
     "test:upload-document": "tsx tests/uploadDocument.test.ts",

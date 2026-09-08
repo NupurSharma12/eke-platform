@@ -19,6 +19,7 @@ export * from "./question/generated-question";
 export * from "./question/generated-question-draft";
 
 export * from "./document/parsed-document";
+export * from "./document/document-structure-candidate";
 
 export * from "./curriculum/chapter";
 
