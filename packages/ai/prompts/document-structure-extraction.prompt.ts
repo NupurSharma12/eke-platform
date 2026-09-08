@@ -3,11 +3,47 @@
  * pass a flattened ParsedDocument.text into this, the page labels
  * ARE the mechanism that lets the model report a real, checkable
  * page range instead of an unlocatable guess.
+ *
+ * `imagePageNumbers` (1-indexed, matching the "PAGE N" labels) marks
+ * pages that have no extractable text and are instead being sent as
+ * attached images alongside this prompt, in the same relative order
+ * as they appear here — DocumentStructureExtractorService is
+ * responsible for actually attaching them in that order via
+ * ImageCapableProvider.generateFromImages. Omitting this parameter
+ * (or passing an empty array) reproduces the original text-only
+ * prompt exactly.
  */
-export function buildDocumentStructureExtractionPrompt(pages: string[]): string {
+export function buildDocumentStructureExtractionPrompt(
+  pages: string[],
+  imagePageNumbers: number[] = []
+): string {
+  const imagePageSet = new Set(imagePageNumbers);
+  let imageOrdinal = 0;
+
   const labelledPages = pages
-    .map((pageText, index) => `PAGE ${index + 1}\n${pageText}`)
+    .map((pageText, index) => {
+      const pageNumber = index + 1;
+      if (imagePageSet.has(pageNumber)) {
+        imageOrdinal += 1;
+        return (
+          `PAGE ${pageNumber}\n` +
+          `[No extractable text on this page. This page is attached as ` +
+          `image ${imageOrdinal} of ${imagePageNumbers.length}, in the same ` +
+          `order as the "PAGE N" labels appear here.]`
+        );
+      }
+      return `PAGE ${pageNumber}\n${pageText}`;
+    })
     .join("\n\n");
+
+  const imageInstructions =
+    imagePageNumbers.length > 0
+      ? `\nSome pages above have no extractable text and are instead provided ` +
+        `as attached images, in the same order their "PAGE N" label appears ` +
+        `above. Read those images directly — the same way you would read ` +
+        `page text — to identify chapter titles, boundaries, and ` +
+        `exercise/practice sections on those pages.\n`
+      : "";
 
   return `
 You are analyzing an educational document to identify candidate
@@ -59,7 +95,7 @@ Strict rules:
   wanted and none will be used.
 - This output is a candidate interpretation for a human to review,
   never verified curriculum truth. Do not present it as certain.
-
+${imageInstructions}
 Return ONLY valid JSON in exactly this format:
 
 {

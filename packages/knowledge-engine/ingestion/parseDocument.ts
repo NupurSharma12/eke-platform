@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { PDFParse } from "pdf-parse";
 
-import { ParsedDocument } from "../../shared-types";
+import { ParsedDocument, ParsedDocumentPageImage } from "../../shared-types";
 
 export async function parseDocument(
   filePath: string
@@ -40,11 +40,45 @@ export async function parseDocument(
       ? [...result.pages].sort((a, b) => a.num - b.num).map((page) => page.text)
       : [result.text];
 
+  // A page with an empty (post-trim) text layer is treated as
+  // image-only for this milestone — no character-count heuristic,
+  // exactly `page.text.trim().length === 0`. Only those pages are
+  // rendered to an image; a page with any real text never is.
+  const textlessPageNumbers = pages
+    .map((pageText, index) => (pageText.trim().length === 0 ? index + 1 : null))
+    .filter((pageNumber): pageNumber is number => pageNumber !== null);
+
+  let pageImages: Array<ParsedDocumentPageImage | null> | undefined;
+
+  if (textlessPageNumbers.length > 0) {
+    const screenshots = await parser.getScreenshot({
+      partial: textlessPageNumbers,
+      imageBuffer: true,
+      imageDataUrl: false,
+    });
+
+    const screenshotByPageNumber = new Map(
+      screenshots.pages.map((screenshot) => [screenshot.pageNumber, screenshot])
+    );
+
+    pageImages = pages.map((_pageText, index) => {
+      const screenshot = screenshotByPageNumber.get(index + 1);
+      if (!screenshot) {
+        return null;
+      }
+      return {
+        base64: Buffer.from(screenshot.data).toString("base64"),
+        mediaType: "image/png",
+      };
+    });
+  }
+
   return {
     id: filename,
     filename,
     kind: "pdf",
     text: result.text,
     pages,
+    ...(pageImages ? { pageImages } : {}),
   };
 }
