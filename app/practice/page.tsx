@@ -10,138 +10,140 @@ import { BookOpen, Check, X, Loader2, ArrowRight } from 'lucide-react';
 import type { GeneratedQuestion } from '@/packages/shared-types';
 import { QuestionVisual } from '@/components/visuals/QuestionVisual';
 
-type DifficultyOption = 'foundation' | 'grade' | 'advanced' | 'olympiad';
+interface CatalogChapter {
+  id: string;
+  number: number | null;
+  name: string | null;
+  status: 'pending' | 'confirmed';
+}
 
-const DIFFICULTIES: { key: DifficultyOption; label: string }[] = [
-  { key: 'foundation', label: 'Foundation' },
-  { key: 'grade', label: 'Grade' },
-  { key: 'advanced', label: 'Advanced' },
-  { key: 'olympiad', label: 'Olympiad' },
-];
-
-const DEFAULT_CONCEPT_ID = 'fractions';
+interface PracticePaper {
+  allocations: { questionType: string; difficulty: string; requested: number; questions: GeneratedQuestion[] }[];
+}
 
 export default function PracticePage() {
   const { activeChild } = useApp();
   const router = useRouter();
 
-  const [concepts, setConcepts] = useState<{ id: string; name: string }[]>([]);
-  const [conceptsError, setConceptsError] = useState<string | null>(null);
+  // Grade -> Subject -> Chapter content-catalog selection.
+  const [grades, setGrades] = useState<number[]>([]);
+  const [gradesLoading, setGradesLoading] = useState(false);
+  const [gradeId, setGradeId] = useState<number | null>(null);
 
-  const [conceptId, setConceptId] = useState(DEFAULT_CONCEPT_ID);
-  const [difficulty, setDifficulty] = useState<DifficultyOption>('grade');
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+  const [subjectId, setSubjectId] = useState<string | null>(null);
 
-  const [question, setQuestion] = useState<GeneratedQuestion | null>(null);
+  const [chapters, setChapters] = useState<CatalogChapter[]>([]);
+  const [chaptersLoading, setChaptersLoading] = useState(false);
+  const [chapterId, setChapterId] = useState<string | null>(null);
+
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  // The generated paper, flattened into a single question-by-question
+  // sequence across all blueprint allocations.
+  const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [nextLoading, setNextLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [poolExhausted, setPoolExhausted] = useState(false);
+
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!activeChild) router.push('/login');
   }, [activeChild, router]);
 
   useEffect(() => {
-    fetch('/api/eke/concepts')
+    setGradesLoading(true);
+    setCatalogError(null);
+    fetch('/api/eke/chapters')
       .then((res) => res.json())
-      .then((data: { concepts: { id: string; name: string }[] }) => {
-        setConcepts(data.concepts);
-        if (data.concepts.length > 0 && !data.concepts.some((c) => c.id === DEFAULT_CONCEPT_ID)) {
-          setConceptId(data.concepts[0].id);
-        }
-      })
-      .catch(() => setConceptsError('Could not load concepts from the Knowledge Graph.'));
+      .then((data: { grades: number[] }) => setGrades(data.grades))
+      .catch(() => setCatalogError('Could not load available grades.'))
+      .finally(() => setGradesLoading(false));
   }, []);
 
-  // Discriminated result rather than a thrown error for the
-  // pool-exhausted case — it's an explicit, expected state (every
-  // cached question for this concept/difficulty has already been
-  // attempted by this student), not a failure.
-  type FetchQuestionResult =
-    | { kind: 'ok'; question: GeneratedQuestion }
-    | { kind: 'pool-exhausted' };
+  // Grade changes: reset subject/chapter, load subjects for the new grade.
+  useEffect(() => {
+    setSubjectId(null);
+    setChapterId(null);
+    setChapters([]);
+    setSubjects([]);
 
-  const fetchQuestion = async (): Promise<FetchQuestionResult> => {
-    const res = await fetch('/api/eke/generate-question', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // studentId scopes the attempt-history exclusion server-side
-      // (see packages/knowledge-engine/studentAttempts) — the same
-      // dev-bypass identity already used to gate this page.
-      body: JSON.stringify({ conceptId, difficulty, studentId: activeChild?.id }),
-    });
-    const data = await res.json();
+    if (gradeId === null) return;
 
-    if (res.status === 409 && data.poolExhausted) {
-      return { kind: 'pool-exhausted' };
-    }
+    setSubjectsLoading(true);
+    setCatalogError(null);
+    fetch(`/api/eke/chapters?gradeId=${gradeId}`)
+      .then((res) => res.json())
+      .then((data: { subjects: string[] }) => setSubjects(data.subjects))
+      .catch(() => setCatalogError('Could not load available subjects.'))
+      .finally(() => setSubjectsLoading(false));
+  }, [gradeId]);
 
-    if (!res.ok) {
-      throw new Error(data.error || 'Failed to generate a question.');
-    }
+  // Subject changes: reset chapter, load chapters for the new grade+subject.
+  useEffect(() => {
+    setChapterId(null);
+    setChapters([]);
 
-    return { kind: 'ok', question: data.question as GeneratedQuestion };
-  };
+    if (gradeId === null || subjectId === null) return;
 
-  const generate = async () => {
-    setLoading(true);
-    setError(null);
-    setPoolExhausted(false);
-    setQuestion(null);
+    setChaptersLoading(true);
+    setCatalogError(null);
+    fetch(`/api/eke/chapters?gradeId=${gradeId}&subjectId=${encodeURIComponent(subjectId)}`)
+      .then((res) => res.json())
+      .then((data: { chapters: CatalogChapter[] }) => setChapters(data.chapters))
+      .catch(() => setCatalogError('Could not load available chapters.'))
+      .finally(() => setChaptersLoading(false));
+  }, [gradeId, subjectId]);
+
+  const generatePaper = async () => {
+    if (gradeId === null || subjectId === null || !chapterId) return;
+
+    setGenerating(true);
+    setGenerateError(null);
+    setQuestions([]);
+    setCurrentIndex(0);
     setSelected(null);
     setSubmitted(false);
 
     try {
-      const result = await fetchQuestion();
-      if (result.kind === 'pool-exhausted') {
-        setPoolExhausted(true);
-      } else {
-        setQuestion(result.question);
+      const res = await fetch('/api/eke/generate-practice-paper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gradeId, subjectId, chapterId, studentId: activeChild?.id }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to generate a practice paper.');
+      }
+
+      const paper = data.paper as PracticePaper;
+      const flattened = paper.allocations.flatMap((a) => a.questions);
+      setQuestions(flattened);
+
+      if (flattened.length === 0) {
+        setGenerateError('No questions were generated for this chapter. Please try again.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate a question.');
+      setGenerateError(err instanceof Error ? err.message : 'Failed to generate a practice paper.');
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
   };
 
-  // Keeps the current (already-submitted) question and its result
-  // visible for the entire fetch — only swapped out once a new
-  // question actually arrives, so there's no flash of an empty card
-  // while the next one loads.
-  const nextQuestion = async () => {
-    setNextLoading(true);
-    setError(null);
-    setPoolExhausted(false);
-
-    try {
-      const result = await fetchQuestion();
-      if (result.kind === 'pool-exhausted') {
-        setPoolExhausted(true);
-      } else {
-        setQuestion(result.question);
-        setSelected(null);
-        setSubmitted(false);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate the next question.');
-    } finally {
-      setNextLoading(false);
-    }
-  };
+  const question = questions[currentIndex] ?? null;
+  const isCorrect = question ? selected === question.correctAnswer : false;
+  const isLastQuestion = currentIndex >= questions.length - 1;
 
   const submitAnswer = () => {
     if (!selected || !question) return;
     setSubmitted(true);
 
-    // Recorded on Submit, not on generate/display — a question only
-    // counts as "attempted" once the student has actually answered
-    // it. Fire-and-forget: this is bookkeeping for future exclusion,
-    // not part of the immediate result feedback, so a transient
-    // failure here shouldn't block or error out the student's view
-    // of their answer.
+    // Fire-and-forget bookkeeping, same as before — a transient
+    // failure here shouldn't block the student's view of their result.
     if (activeChild) {
       fetch('/api/eke/record-attempt', {
         method: 'POST',
@@ -153,11 +155,18 @@ export default function PracticePage() {
     }
   };
 
+  const nextQuestion = () => {
+    setCurrentIndex((i) => i + 1);
+    setSelected(null);
+    setSubmitted(false);
+  };
+
   if (!activeChild) {
     return <AppShell><div className="flex items-center justify-center min-h-[60vh]"><Mascot mood="thinking" size={80} /></div></AppShell>;
   }
 
-  const isCorrect = question ? selected === question.correctAnswer : false;
+  const selectedChapter = chapters.find((c) => c.id === chapterId) ?? null;
+  const canGenerate = gradeId !== null && subjectId !== null && !!chapterId && !generating;
 
   return (
     <AppShell>
@@ -166,65 +175,90 @@ export default function PracticePage() {
           <div className="absolute top-0 right-0 text-9xl opacity-20 -translate-y-1/4">📘</div>
           <div className="relative">
             <h1 className="text-2xl lg:text-3xl font-bold" style={{ fontFamily: 'var(--font-fun)' }}>EKE Practice</h1>
-            <p className="opacity-90 mt-1">Questions generated fresh from the Knowledge Engine.</p>
+            <p className="opacity-90 mt-1">Generate a practice paper from the Knowledge Engine.</p>
           </div>
         </div>
 
         <div className="bg-white rounded-3xl p-6 shadow-xl border-2 border-primary/10 space-y-4">
-          <div>
-            <label className="text-sm font-medium text-muted-foreground mb-2 block">Concept</label>
-            {conceptsError ? (
-              <p className="text-sm text-destructive">{conceptsError}</p>
-            ) : (
-              <select
-                value={conceptId}
-                onChange={(e) => setConceptId(e.target.value)}
-                className="w-full sm:w-auto border-2 border-primary/10 rounded-xl px-4 py-2.5 font-medium"
-              >
-                {concepts.length === 0 && (
-                  <option value={DEFAULT_CONCEPT_ID}>Fractions</option>
-                )}
-                {concepts.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-muted-foreground mb-2 block">Difficulty</label>
-            <div className="flex gap-2 flex-wrap">
-              {DIFFICULTIES.map((d) => (
-                <button
-                  key={d.key}
-                  onClick={() => setDifficulty(d.key)}
-                  className={`px-4 py-2 rounded-xl font-medium transition-all ${
-                    difficulty === d.key ? 'bg-primary text-primary-foreground' : 'bg-white border-2 border-primary/10 hover:border-primary'
-                  }`}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={generate}
-            disabled={loading || nextLoading || !conceptId}
-            className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-2xl font-bold hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:hover:scale-100"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <BookOpen className="w-5 h-5" />}
-            {loading ? 'Generating…' : 'Generate Question'}
-          </button>
-
-          {error && (
-            <div className="bg-destructive/10 text-destructive rounded-xl p-3 text-sm font-medium">{error}</div>
+          {catalogError && (
+            <div className="bg-destructive/10 text-destructive rounded-xl p-3 text-sm font-medium">{catalogError}</div>
           )}
 
-          {poolExhausted && (
-            <div className="bg-secondary/10 text-foreground rounded-xl p-3 text-sm font-medium">
-              🎉 You&apos;ve attempted every question available for this concept and difficulty. Try a different concept or difficulty!
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">Grade</label>
+              <select
+                value={gradeId ?? ''}
+                onChange={(e) => setGradeId(e.target.value ? Number(e.target.value) : null)}
+                disabled={gradesLoading}
+                className="w-full border-2 border-primary/10 rounded-xl px-4 py-2.5 font-medium"
+              >
+                <option value="">{gradesLoading ? 'Loading…' : 'Select grade'}</option>
+                {grades.map((g) => (
+                  <option key={g} value={g}>Grade {g}</option>
+                ))}
+              </select>
+              {!gradesLoading && grades.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">No grades available yet.</p>
+              )}
             </div>
+
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">Subject</label>
+              <select
+                value={subjectId ?? ''}
+                onChange={(e) => setSubjectId(e.target.value || null)}
+                disabled={gradeId === null || subjectsLoading}
+                className="w-full border-2 border-primary/10 rounded-xl px-4 py-2.5 font-medium"
+              >
+                <option value="">{subjectsLoading ? 'Loading…' : 'Select subject'}</option>
+                {subjects.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              {gradeId !== null && !subjectsLoading && subjects.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">No subjects available for this grade yet.</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">Chapter</label>
+              <select
+                value={chapterId ?? ''}
+                onChange={(e) => setChapterId(e.target.value || null)}
+                disabled={subjectId === null || chaptersLoading}
+                className="w-full border-2 border-primary/10 rounded-xl px-4 py-2.5 font-medium"
+              >
+                <option value="">{chaptersLoading ? 'Loading…' : 'Select chapter'}</option>
+                {chapters.map((c) => (
+                  <option key={c.id} value={c.id} disabled={c.status !== 'confirmed'}>
+                    {c.name ?? c.id}{c.status !== 'confirmed' ? ' (not yet available)' : ''}
+                  </option>
+                ))}
+              </select>
+              {subjectId !== null && !chaptersLoading && chapters.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">No chapters available for this subject yet.</p>
+              )}
+            </div>
+          </div>
+
+          {selectedChapter && selectedChapter.status !== 'confirmed' && (
+            <div className="bg-secondary/10 text-foreground rounded-xl p-3 text-sm font-medium">
+              This chapter is still pending confirmation and isn&apos;t available for practice yet.
+            </div>
+          )}
+
+          <button
+            onClick={generatePaper}
+            disabled={!canGenerate}
+            className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-2xl font-bold hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:hover:scale-100"
+          >
+            {generating ? <Loader2 className="w-5 h-5 animate-spin" /> : <BookOpen className="w-5 h-5" />}
+            {generating ? 'Generating…' : 'Generate Practice Paper'}
+          </button>
+
+          {generateError && (
+            <div className="bg-destructive/10 text-destructive rounded-xl p-3 text-sm font-medium">{generateError}</div>
           )}
         </div>
 
@@ -237,6 +271,10 @@ export default function PracticePage() {
               exit={{ opacity: 0, x: -50 }}
               className="bg-white rounded-3xl p-6 lg:p-8 shadow-xl border-2 border-primary/10"
             >
+              <div className="text-sm font-medium text-muted-foreground mb-2">
+                Question {currentIndex + 1} of {questions.length}
+              </div>
+
               <div className="flex items-start gap-3 mb-6">
                 <Mascot mood={submitted ? (isCorrect ? 'celebrating' : 'thinking') : 'happy'} size={56} />
                 <h2 className="text-xl lg:text-2xl font-bold pt-2" style={{ fontFamily: 'var(--font-fun)' }}>
@@ -299,14 +337,17 @@ export default function PracticePage() {
                     <p className="text-muted-foreground">{question.explanation}</p>
                   </div>
 
-                  <button
-                    onClick={nextQuestion}
-                    disabled={nextLoading}
-                    className="flex items-center justify-center gap-2 w-full bg-primary text-primary-foreground py-3 rounded-2xl font-bold hover:scale-[1.01] transition-transform disabled:opacity-50 disabled:hover:scale-100"
-                  >
-                    {nextLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-                    {nextLoading ? 'Loading next question…' : 'Next Question'}
-                  </button>
+                  {!isLastQuestion ? (
+                    <button
+                      onClick={nextQuestion}
+                      className="flex items-center justify-center gap-2 w-full bg-primary text-primary-foreground py-3 rounded-2xl font-bold hover:scale-[1.01] transition-transform"
+                    >
+                      <ArrowRight className="w-5 h-5" />
+                      Next Question
+                    </button>
+                  ) : (
+                    <div className="text-center font-bold text-lg py-2">🎉 Practice paper complete!</div>
+                  )}
                 </motion.div>
               )}
             </motion.div>

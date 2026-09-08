@@ -21,7 +21,7 @@ interface WalkEntry {
   kind: SupportedFileKind | null;
 }
 
-function classify(filename: string): SupportedFileKind | null {
+export function classify(filename: string): SupportedFileKind | null {
   if (/\.pdf$/i.test(filename)) return "pdf";
   if (/\.(jpe?g|png)$/i.test(filename)) return "image";
   return null;

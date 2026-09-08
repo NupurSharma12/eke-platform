@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/app-context';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Calculator, FlaskConical, Landmark, Globe, Trophy, Settings, LogOut, Menu, X, Gamepad2, BarChart3, BookOpen } from 'lucide-react';
+import { Home, Calculator, FlaskConical, Landmark, Globe, Trophy, Settings, LogOut, Menu, X, Gamepad2, BarChart3, BookOpen, UploadCloud } from 'lucide-react';
 import { useState } from 'react';
 import { Mascot } from '@/components/mascot';
 import { getLevel } from '@/lib/game';
@@ -17,6 +17,7 @@ const NAV = [
   { href: '/geography', label: 'Geography', icon: Globe },
   { href: '/quiz', label: 'Quiz', icon: Gamepad2 },
   { href: '/practice', label: 'EKE Practice', icon: BookOpen },
+  { href: '/upload', label: 'Add Material', icon: UploadCloud },
   { href: '/rewards', label: 'Rewards', icon: Trophy },
   { href: '/parent', label: 'Parent', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
