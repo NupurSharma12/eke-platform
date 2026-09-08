@@ -30,9 +30,7 @@ import {
 } from "./knowledge-engine/questionGeneration";
 import { QuestionPoolExhaustedError } from "./knowledge-engine/studentAttempts";
 import {
-  AIProvider,
-  ClaudeProvider,
-  GroqProvider,
+  buildProviderChain,
   QuestionGenerator,
   ClaudeQuestionGenerator,
   QuestionReviewer,
@@ -281,10 +279,7 @@ async function main() {
   const request = parseGenerationArgs(argv);
   const poolSizeArg = parseArg(argv, "--pool-size");
 
-  const provider: AIProvider =
-    process.env.AI_PROVIDER === "groq"
-      ? new GroqProvider()
-      : new ClaudeProvider();
+  const provider = buildProviderChain();
 
   const generator = new ClaudeQuestionGenerator(provider);
   const reviewer = new ClaudeQuestionReviewer(provider);

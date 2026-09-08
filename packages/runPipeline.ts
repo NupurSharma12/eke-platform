@@ -24,9 +24,7 @@ import {
   saveKnowledgeGraph,
   CANONICAL_GRAPH_FILENAME,
 } from "./knowledge-engine/graph";
-import { AIProvider } from "./ai/providers/AIProvider";
-import { ClaudeProvider } from "./ai/providers/ClaudeProvider";
-import { GroqProvider } from "./ai/providers/GroqProvider";
+import { buildProviderChain } from "./ai/providers/buildProviderChain";
 import { ClaudeConceptExtractor } from "./ai/extractors/ConceptExtractorService";
 import { ClaudeAssessmentStructureExtractor } from "./ai/extractors/AssessmentStructureExtractorService";
 import { shouldExtractAssessmentStructure } from "./ai/extractors/AssessmentStructureExtractor";
@@ -71,10 +69,7 @@ async function main() {
     contributions,
   });
 
-  const provider: AIProvider =
-    process.env.AI_PROVIDER === "groq"
-      ? new GroqProvider()
-      : new ClaudeProvider();
+  const provider = buildProviderChain();
 
   const extractor =
     new ClaudeConceptExtractor(provider);

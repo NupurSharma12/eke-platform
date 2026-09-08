@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { generateQuestion } from "@/packages/generateQuestion";
 import {
-  AIProvider,
-  ClaudeProvider,
-  GroqProvider,
-  GeminiProvider,
-  resolveProviderName,
+  buildProviderChain,
   ClaudeQuestionGenerator,
   ClaudeQuestionReviewer,
 } from "@/packages/ai";
@@ -83,13 +79,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const providerName = resolveProviderName(process.env.AI_PROVIDER);
-    const provider: AIProvider =
-      providerName === "groq"
-        ? new GroqProvider()
-        : providerName === "gemini"
-        ? new GeminiProvider()
-        : new ClaudeProvider();
+    const provider = buildProviderChain();
 
     const generator = new ClaudeQuestionGenerator(provider);
     const reviewer = new ClaudeQuestionReviewer(provider);
