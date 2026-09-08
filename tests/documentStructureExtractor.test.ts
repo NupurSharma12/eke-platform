@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 
 import { ParsedDocument } from "../packages/shared-types";
 import { AIProvider } from "../packages/ai/providers/AIProvider";
+import { ProviderImage } from "../packages/ai/providers/ImageCapableProvider";
 import { ClaudeDocumentStructureExtractor } from "../packages/ai/extractors/DocumentStructureExtractorService";
 import { buildDocumentStructureExtractionPrompt } from "../packages/ai/prompts/document-structure-extraction.prompt";
 
@@ -18,6 +19,35 @@ function fakeProvider(rawResponse: string): AIProvider {
   return {
     async generate() {
       return rawResponse;
+    },
+  };
+}
+
+/**
+ * A fake ImageCapableProvider that records the exact images and
+ * prompt it was called with, so tests can assert both the ordering
+ * of the images sent and that the multimodal path (not .generate)
+ * was actually taken.
+ */
+function fakeImageCapableProvider(rawResponse: string): {
+  provider: AIProvider & { generateFromImages: (images: ProviderImage[], prompt: string) => Promise<string> };
+  calls: { generate: number; generateFromImages: Array<{ images: ProviderImage[]; prompt: string }> };
+} {
+  const calls = {
+    generate: 0,
+    generateFromImages: [] as Array<{ images: ProviderImage[]; prompt: string }>,
+  };
+  return {
+    calls,
+    provider: {
+      async generate() {
+        calls.generate += 1;
+        return rawResponse;
+      },
+      async generateFromImages(images: ProviderImage[], prompt: string) {
+        calls.generateFromImages.push({ images, prompt });
+        return rawResponse;
+      },
     },
   };
 }
@@ -276,6 +306,116 @@ async function main() {
     assert.equal(prompt.split("More explanation about angles and turns.").length - 1, 1);
   });
 
+  await test("an image-only document is sent through generateFromImages, not generate, with all page images in order", async () => {
+    const imageDocument: ParsedDocument = {
+      id: "__test-image-only-doc__.pdf",
+      filename: "image-only-doc.pdf",
+      kind: "pdf",
+      text: "",
+      pages: ["", "", ""],
+      pageImages: [
+        { base64: "page1base64", mediaType: "image/png" },
+        { base64: "page2base64", mediaType: "image/png" },
+        { base64: "page3base64", mediaType: "image/png" },
+      ],
+    };
+
+    const { provider, calls } = fakeImageCapableProvider(
+      JSON.stringify({
+        ranges: [{ kind: "content", startPage: 1, endPage: 3, evidence: "seen in the attached images" }],
+      })
+    );
+    const extractor = new ClaudeDocumentStructureExtractor(provider);
+
+    const candidate = await extractor.extract(imageDocument);
+
+    assert.equal(candidate.ranges.length, 1);
+    assert.equal(calls.generate, 0, "the text-only path should not be used");
+    assert.equal(calls.generateFromImages.length, 1, "one combined request, not one per page");
+
+    const [{ images, prompt }] = calls.generateFromImages;
+    assert.deepEqual(
+      images.map((i) => i.base64),
+      ["page1base64", "page2base64", "page3base64"],
+      "images must be sent in page order"
+    );
+    assert.match(prompt, /PAGE 1/);
+    assert.match(prompt, /PAGE 2/);
+    assert.match(prompt, /PAGE 3/);
+    assert.match(prompt, /attached as image 1 of 3/);
+    assert.match(prompt, /attached as image 3 of 3/);
+  });
+
+  await test("a mixed document preserves text evidence for text pages and sends only image pages, in order, with full page context", async () => {
+    const mixedDocument: ParsedDocument = {
+      id: "__test-mixed-doc__.pdf",
+      filename: "mixed-doc.pdf",
+      kind: "pdf",
+      text: "Chapter 4 — Living and Non-living things",
+      pages: ["Chapter 4 — Living and Non-living things", "", "", "Chapter 5 — Plants Around Us"],
+      pageImages: [null, { base64: "page2base64", mediaType: "image/png" }, { base64: "page3base64", mediaType: "image/png" }, null],
+    };
+
+    const { provider, calls } = fakeImageCapableProvider(
+      JSON.stringify({
+        ranges: [
+          { kind: "content", startPage: 1, endPage: 1, chapterTitle: "Living and Non-living things", chapterNumber: 4, evidence: "PAGE 1 text" },
+          { kind: "exercise", startPage: 2, endPage: 3, evidence: "attached images show practice activities" },
+          { kind: "content", startPage: 4, endPage: 4, chapterTitle: "Plants Around Us", chapterNumber: 5, evidence: "PAGE 4 text" },
+        ],
+      })
+    );
+    const extractor = new ClaudeDocumentStructureExtractor(provider);
+
+    const candidate = await extractor.extract(mixedDocument);
+
+    assert.equal(candidate.ranges.length, 3);
+    assert.equal(calls.generateFromImages.length, 1);
+
+    const [{ images, prompt }] = calls.generateFromImages;
+    assert.deepEqual(images.map((i) => i.base64), ["page2base64", "page3base64"]);
+
+    // Full page context (both text and image-page placeholders) is
+    // present, not just the image pages.
+    assert.match(prompt, /Chapter 4 — Living and Non-living things/);
+    assert.match(prompt, /Chapter 5 — Plants Around Us/);
+    assert.match(prompt, /PAGE 2\n\[No extractable text/);
+    assert.match(prompt, /PAGE 3\n\[No extractable text/);
+  });
+
+  await test("a non-image-capable provider fails clearly, rather than silently dropping the images, when image pages exist", async () => {
+    const imageDocument: ParsedDocument = {
+      id: "__test-needs-image-provider__.pdf",
+      filename: "needs-image-provider.pdf",
+      kind: "pdf",
+      text: "",
+      pages: [""],
+      pageImages: [{ base64: "onlypage", mediaType: "image/png" }],
+    };
+
+    const textOnlyProvider = fakeProvider(JSON.stringify({ ranges: [] }));
+    const extractor = new ClaudeDocumentStructureExtractor(textOnlyProvider);
+
+    await assert.rejects(
+      () => extractor.extract(imageDocument),
+      /image-capable AI provider/
+    );
+  });
+
+  await test("a document with pageImages entirely absent uses the plain text path unchanged (backward compatibility)", async () => {
+    const { provider, calls } = fakeImageCapableProvider(
+      JSON.stringify({
+        ranges: [{ kind: "content", startPage: 1, endPage: 1, evidence: "x" }],
+      })
+    );
+    const extractor = new ClaudeDocumentStructureExtractor(provider);
+
+    await extractor.extract(document);
+
+    assert.equal(calls.generateFromImages.length, 0, "no images exist, so generate() should be used");
+    assert.equal(calls.generate, 1);
+  });
+
   await test("buildDocumentStructureExtractionPrompt labels every page in order, independent of the extractor", () => {
     const prompt = buildDocumentStructureExtractionPrompt(["alpha", "beta", "gamma"]);
 
@@ -288,6 +428,22 @@ async function main() {
     assert.match(prompt, /PAGE 1\nalpha/);
     assert.match(prompt, /PAGE 2\nbeta/);
     assert.match(prompt, /PAGE 3\ngamma/);
+  });
+
+  await test("buildDocumentStructureExtractionPrompt with no imagePageNumbers is byte-identical to omitting the argument (backward compatibility)", () => {
+    const withDefault = buildDocumentStructureExtractionPrompt(["alpha", "beta"]);
+    const withExplicitEmpty = buildDocumentStructureExtractionPrompt(["alpha", "beta"], []);
+
+    assert.equal(withDefault, withExplicitEmpty);
+  });
+
+  await test("buildDocumentStructureExtractionPrompt marks image pages with their ordinal, in page order", () => {
+    const prompt = buildDocumentStructureExtractionPrompt(["alpha", "", "", "delta"], [2, 3]);
+
+    assert.match(prompt, /PAGE 1\nalpha/);
+    assert.match(prompt, /PAGE 2\n\[No extractable text on this page\. This page is attached as image 1 of 2/);
+    assert.match(prompt, /PAGE 3\n\[No extractable text on this page\. This page is attached as image 2 of 2/);
+    assert.match(prompt, /PAGE 4\ndelta/);
   });
 
   console.log(`\n${passed} passed`);

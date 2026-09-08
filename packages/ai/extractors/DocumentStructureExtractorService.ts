@@ -1,7 +1,8 @@
-import { ParsedDocument, DocumentStructureCandidate } from "../../shared-types";
+import { ParsedDocument, ParsedDocumentPageImage, DocumentStructureCandidate } from "../../shared-types";
 import { DocumentStructureExtractionResultSchema } from "../schemas/document-structure-extraction.schema";
 import { DocumentStructureExtractor } from "./DocumentStructureExtractor";
 import { AIProvider } from "../providers/AIProvider";
+import { ProviderImage, isImageCapableProvider } from "../providers/ImageCapableProvider";
 import { buildDocumentStructureExtractionPrompt } from "../prompts/document-structure-extraction.prompt";
 
 /**
@@ -27,9 +28,43 @@ export class ClaudeDocumentStructureExtractor
   constructor(private readonly provider: AIProvider) {}
 
   async extract(document: ParsedDocument): Promise<DocumentStructureCandidate> {
-    const prompt = buildDocumentStructureExtractionPrompt(document.pages);
+    // Pages with no extractable text carry transient image evidence
+    // instead (see ParsedDocumentPageImage) — collected here in page
+    // order so both the prompt's "PAGE N ... attached image K of N"
+    // labelling and the actual images sent to the provider agree on
+    // ordering.
+    const imagePages: Array<{ pageNumber: number; image: ParsedDocumentPageImage }> = [];
+    (document.pageImages ?? []).forEach((image, index) => {
+      if (image) {
+        imagePages.push({ pageNumber: index + 1, image });
+      }
+    });
+    const imagePageNumbers = imagePages.map((entry) => entry.pageNumber);
 
-    const response = await this.provider.generate(prompt);
+    const prompt = buildDocumentStructureExtractionPrompt(document.pages, imagePageNumbers);
+
+    let response: string;
+
+    if (imagePageNumbers.length > 0) {
+      if (!isImageCapableProvider(this.provider)) {
+        throw new Error(
+          `Document structure extraction for "${document.id}" requires an ` +
+          `image-capable AI provider: ${imagePageNumbers.length} page(s) ` +
+          `(${imagePageNumbers.join(", ")}) have no extractable text and ` +
+          `must be read as images, but the configured provider does not ` +
+          `support image input.`
+        );
+      }
+
+      const images: ProviderImage[] = imagePages.map(({ image }) => ({
+        base64: image.base64,
+        mediaType: image.mediaType,
+      }));
+
+      response = await this.provider.generateFromImages(images, prompt);
+    } else {
+      response = await this.provider.generate(prompt);
+    }
 
     const rawResult = JSON.parse(response);
 
