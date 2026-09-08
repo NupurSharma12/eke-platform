@@ -46,6 +46,10 @@
     "test:practice-paper": "tsx tests/generatePracticePaper.test.ts",
     "test:source-policy": "tsx tests/resolveAllowedPatternIds.test.ts",
     "test:assessment-structure": "tsx tests/assessmentStructureExtractor.test.ts",
+    "test:practice-paper-route": "tsx tests/generatePracticePaperRoute.test.ts",
+    "test:curriculum-content": "tsx tests/curriculumContent.test.ts",
+    "test:upload-document": "tsx tests/uploadDocument.test.ts",
+    "test:upload-material-route": "tsx tests/uploadMaterialRoute.test.ts",
     "inspect:graph": "tsx packages/inspectKnowledgeGraph.ts",
     "generate:question": "tsx packages/generateQuestion.ts"
   },

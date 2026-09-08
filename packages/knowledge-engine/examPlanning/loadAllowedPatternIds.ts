@@ -1,5 +1,11 @@
 import { loadQuestionPatterns } from "../canonicalization";
-import { loadSourceMetadata } from "../ingestion";
+// Specific submodule, not the ingestion barrel — that barrel also
+// re-exports ./parseDocument, which pulls in pdf-parse/pdfjs-dist and
+// breaks Next's webpack bundling for any API route that imports
+// generatePracticePaper (which imports this file directly). Same
+// reasoning already applied to packages/generateQuestion.ts's own
+// imports; a pure import-path change, no referenced logic moved.
+import { loadSourceMetadata } from "../ingestion/loadSourceMetadata";
 import { SourceMetadata } from "../../shared-types";
 import {
   GenerationSourcePolicy,
