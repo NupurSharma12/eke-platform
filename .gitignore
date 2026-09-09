@@ -37,3 +37,9 @@ yarn-error.log*
 next-env.d.ts
 
 data/
+
+# tesseract.js's default Node cache location: language trained-data
+# files it downloads to the process cwd on first use (e.g.
+# eng.traineddata). Not source, not a build artifact — a runtime OCR
+# cache, regenerated automatically on next use if missing.
+*.traineddata

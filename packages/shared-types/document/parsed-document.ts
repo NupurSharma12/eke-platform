@@ -32,4 +32,29 @@ export interface ParsedDocument {
    * change.
    */
   pageImages?: Array<ParsedDocumentPageImage | null>;
+
+  /**
+   * OCR enrichment, added by enrichWithOcr() — never by
+   * parseDocument() itself, and never by mutating an existing
+   * ParsedDocument. All three arrays are optional and, when present,
+   * parallel to `pages` (same length, same 1-indexed page order).
+   * `pages[i]` itself is never overwritten with OCR text — it
+   * remains exactly what parseDocument() extracted from the PDF's
+   * own text layer, empty or not.
+   */
+
+  /** OCR-transcribed text for pages[i], or null if OCR was not run or produced nothing usable. */
+  pageOcrText?: Array<string | null>;
+
+  /**
+   * Where pages[i]'s *usable* text came from: "pdf" (pages[i] itself
+   * is real PDF-native text), "ocr" (pageOcrText[i] is usable), or
+   * null (neither — no usable text is available for this page at
+   * all, whether because no OCR was attempted or because it was
+   * attempted and produced nothing usable).
+   */
+  pageTextSources?: Array<"pdf" | "ocr" | null>;
+
+  /** The reason OCR could not produce a result for pages[i], or null if OCR wasn't attempted or succeeded. */
+  pageOcrErrors?: Array<string | null>;
 }
