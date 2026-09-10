@@ -9,6 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:normalize": "tsx tests/normalizeConcepts.test.ts",
+    "test:document-evidence": "tsx tests/documentEvidence.test.ts",
+    "test:concept-extraction-evidence": "tsx tests/conceptExtractionEvidence.test.ts",
     "test:graph": "tsx tests/buildKnowledgeGraph.test.ts",
     "test:save-graph": "tsx tests/saveKnowledgeGraph.test.ts",
     "test:find-pdfs": "tsx tests/findPdfFiles.test.ts",
