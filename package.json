@@ -39,6 +39,8 @@
     "test:enrich-with-ocr": "tsx tests/enrichWithOcr.test.ts",
     "test:image-provider": "tsx tests/imageCapableProvider.test.ts",
     "test:gemini-provider": "tsx tests/geminiProvider.test.ts",
+    "test:gemini-vision-provider": "tsx tests/geminiVisionProvider.test.ts",
+    "test:enrich-with-vision": "tsx tests/enrichWithVision.test.ts",
     "test:groq-provider": "tsx tests/groqProvider.test.ts",
     "test:openrouter-provider": "tsx tests/openRouterProvider.test.ts",
     "test:fallback-provider": "tsx tests/fallbackAIProvider.test.ts",

@@ -1,5 +1,5 @@
-import { ParsedDocument } from "../../shared-types";
-import { OcrProvider } from "../../ai/providers/OcrProvider";
+import { ParsedDocument } from "./shared-types";
+import { OcrProvider } from "./ai/providers/OcrProvider";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

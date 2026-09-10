@@ -57,4 +57,35 @@ export interface ParsedDocument {
 
   /** The reason OCR could not produce a result for pages[i], or null if OCR wasn't attempted or succeeded. */
   pageOcrErrors?: Array<string | null>;
+
+  /**
+   * Vision enrichment, added by enrichWithVision() — never by
+   * parseDocument() itself, and never by mutating an existing
+   * ParsedDocument. Parallel to `pages`/`pageImages` (same length,
+   * same 1-indexed page order).
+   *
+   * Structurally identical to (but deliberately independent of)
+   * VisionAnalysisResult/VisualElement in packages/ai/providers/
+   * VisionProvider.ts — shared-types has no dependency on ai/, the
+   * same reasoning already applied to ParsedDocumentPageImage vs.
+   * ProviderImage.
+   */
+  pageVisionAnalysis?: Array<PageVisionAnalysis | null>;
+
+  /** The reason vision analysis could not produce a result for pages[i], or null if it wasn't attempted or it succeeded. */
+  pageVisionErrors?: Array<string | null>;
+}
+
+export interface PageVisualElement {
+  type: string;
+
+  description: string;
+}
+
+export interface PageVisionAnalysis {
+  visibleText: string;
+
+  visualElements: PageVisualElement[];
+
+  educationalSignificance: string;
 }
