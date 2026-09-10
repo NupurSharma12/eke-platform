@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { ParsedDocument } from "../packages/shared-types";
 import { OcrProvider } from "../packages/ai/providers/OcrProvider";
 import { ProviderImage } from "../packages/ai/providers/ImageCapableProvider";
-import { enrichWithOcr } from "../packages/knowledge-engine/ingestion/enrichWithOcr";
+import { enrichWithOcr } from "../packages/enrichWithOcr";
 
 let passed = 0;
 

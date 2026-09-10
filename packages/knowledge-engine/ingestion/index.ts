@@ -1,6 +1,5 @@
 export * from "./parseDocument";
 export * from "./parseImage";
-export * from "./enrichWithOcr";
 export * from "./saveRawExtraction";
 export * from "./findPdfFiles";
 export * from "./findSupportedFiles";

@@ -14,6 +14,8 @@ export * from "./providers/AIProvider";
 export * from "./providers/ImageCapableProvider";
 export * from "./providers/OcrProvider";
 export * from "./providers/TesseractOcrProvider";
+export * from "./providers/VisionProvider";
+export * from "./providers/GeminiVisionProvider";
 export * from "./providers/ClaudeProvider";
 export * from "./providers/GroqProvider";
 export * from "./providers/GeminiProvider";
