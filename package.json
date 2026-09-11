@@ -57,6 +57,7 @@
     "test:source-policy": "tsx tests/resolveAllowedPatternIds.test.ts",
     "test:assessment-structure": "tsx tests/assessmentStructureExtractor.test.ts",
     "test:document-structure": "tsx tests/documentStructureExtractor.test.ts",
+    "test:question-pattern-evidence": "tsx tests/questionPatternEvidenceExtractor.test.ts",
     "test:parse-document-page-images": "tsx tests/parseDocumentPageImages.test.ts",
     "test:save-document-structure-candidate": "tsx tests/saveDocumentStructureCandidate.test.ts",
     "test:practice-paper-route": "tsx tests/generatePracticePaperRoute.test.ts",

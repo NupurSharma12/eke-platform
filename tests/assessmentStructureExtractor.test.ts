@@ -30,6 +30,20 @@ function fakeProvider(rawResponse: string): AIProvider {
   };
 }
 
+/** Records the exact prompt text sent, and returns a canned response. */
+function recordingProvider(rawResponse: string): { provider: AIProvider; prompts: string[] } {
+  const prompts: string[] = [];
+  return {
+    prompts,
+    provider: {
+      async generate(prompt: string) {
+        prompts.push(prompt);
+        return rawResponse;
+      },
+    },
+  };
+}
+
 const document: ParsedDocument = {
   id: "__test-cmo-sample-paper__.pdf",
   filename: "cmo-sample-paper.pdf",
@@ -162,6 +176,90 @@ async function main() {
   await test("ASSESSMENT_EVIDENCE_DOCUMENT_TYPES is exactly exam + olympiad", () => {
     const sorted = [...ASSESSMENT_EVIDENCE_DOCUMENT_TYPES].sort();
     assert.deepEqual(sorted, ["exam", "olympiad"] as DocumentType[]);
+  });
+
+  await test("the extractor sends unified document evidence (page-labelled TEXT:), not the flattened document.text, to the prompt", async () => {
+    const { provider, prompts } = recordingProvider(
+      JSON.stringify({ allocations: [{ questionType: "mcq", count: 1 }] })
+    );
+    const extractor = new ClaudeAssessmentStructureExtractor(provider);
+
+    await extractor.extract(document);
+
+    assert.equal(prompts.length, 1);
+    assert.match(prompts[0], /PAGE 1/);
+    assert.match(prompts[0], /TEXT:\n1\. What is 1\/2 \+ 1\/4\?/);
+  });
+
+  await test("OCR text reaches the prompt for a page with no native text, via the shared evidence builder", async () => {
+    const scannedExam: ParsedDocument = {
+      id: "__test-scanned-exam__.pdf",
+      filename: "scanned-exam.pdf",
+      kind: "pdf",
+      text: "",
+      pages: [""],
+      pageOcrText: ["1. What is the area of a square with side 4 cm?"],
+      pageTextSources: ["ocr"],
+    };
+
+    const { provider, prompts } = recordingProvider(
+      JSON.stringify({ allocations: [{ questionType: "word-problem", count: 1 }] })
+    );
+    const extractor = new ClaudeAssessmentStructureExtractor(provider);
+
+    await extractor.extract(scannedExam);
+
+    assert.match(prompts[0], /OCR:\n1\. What is the area of a square with side 4 cm\?/);
+    assert.doesNotMatch(prompts[0], /TEXT:/);
+  });
+
+  await test("vision-derived visual elements reach the prompt, without leaking visibleText as if it were transcribed text", async () => {
+    const examWithDiagram: ParsedDocument = {
+      id: "__test-exam-with-diagram__.pdf",
+      filename: "exam-with-diagram.pdf",
+      kind: "pdf",
+      text: "",
+      pages: [""],
+      pageOcrText: ["1. Identify the angle shown below."],
+      pageTextSources: ["ocr"],
+      pageVisionAnalysis: [
+        {
+          visibleText: "SENTINEL_SHOULD_NOT_APPEAR",
+          visualElements: [{ type: "diagram", description: "a right angle formed by two rays" }],
+          educationalSignificance: "tests angle identification",
+        },
+      ],
+    };
+
+    const { provider, prompts } = recordingProvider(
+      JSON.stringify({ allocations: [{ questionType: "visual", count: 1 }] })
+    );
+    const extractor = new ClaudeAssessmentStructureExtractor(provider);
+
+    await extractor.extract(examWithDiagram);
+
+    assert.match(prompts[0], /VISUAL EVIDENCE:\n- diagram: a right angle formed by two rays/);
+    assert.doesNotMatch(prompts[0], /SENTINEL_SHOULD_NOT_APPEAR/);
+  });
+
+  await test("existing behavior is preserved for a plain document with no OCR/vision enrichment (backward compatibility)", async () => {
+    const { provider } = recordingProvider(
+      JSON.stringify({
+        allocations: [
+          { questionType: "mcq", count: 10 },
+          { questionType: "word-problem", count: 5 },
+        ],
+      })
+    );
+    const extractor = new ClaudeAssessmentStructureExtractor(provider);
+
+    const evidence = await extractor.extract(document);
+
+    assert.equal(evidence.sourceDocumentId, document.id);
+    assert.deepEqual(evidence.allocations, [
+      { questionType: "mcq", count: 10 },
+      { questionType: "word-problem", count: 5 },
+    ]);
   });
 
   console.log(`\n${passed} passed`);
