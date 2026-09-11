@@ -11,6 +11,7 @@ export * from "./source/source-contribution";
 export * from "./source/source-metadata";
 
 export * from "./question/question-pattern";
+export * from "./question/observed-question-evidence";
 export * from "./question/visual-spec";
 export * from "./question/question-type";
 export * from "./question/question-generation-request";

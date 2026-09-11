@@ -3,6 +3,7 @@ import { AssessmentStructureExtractionResultSchema } from "../schemas/assessment
 import { AssessmentStructureExtractor } from "./AssessmentStructureExtractor";
 import { AIProvider } from "../providers/AIProvider";
 import { buildAssessmentStructureExtractionPrompt } from "../prompts/assessment-structure-extraction.prompt";
+import { buildDocumentEvidenceText } from "../prompts/documentEvidence";
 
 /**
  * Turns a ParsedDocument into AssessmentStructureEvidence via one
@@ -24,7 +25,13 @@ export class ClaudeAssessmentStructureExtractor
   async extract(
     document: ParsedDocument
   ): Promise<AssessmentStructureEvidence> {
-    const prompt = buildAssessmentStructureExtractionPrompt(document.text);
+    // Same unified evidence (native text, OCR where it's the page's
+    // usable source, vision-derived visual elements) already used by
+    // ConceptExtractorService — see buildDocumentEvidenceText's own
+    // doc comment for the exact per-page rules. Reused as-is, not
+    // reimplemented: this is a call-site change only.
+    const documentText = buildDocumentEvidenceText(document);
+    const prompt = buildAssessmentStructureExtractionPrompt(documentText);
 
     const response = await this.provider.generate(prompt);
 

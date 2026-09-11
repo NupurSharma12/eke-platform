@@ -4,6 +4,8 @@ export * from "./extractors/AssessmentStructureExtractor";
 export * from "./extractors/AssessmentStructureExtractorService";
 export * from "./extractors/DocumentStructureExtractor";
 export * from "./extractors/DocumentStructureExtractorService";
+export * from "./extractors/QuestionPatternEvidenceExtractor";
+export * from "./extractors/QuestionPatternEvidenceExtractorService";
 
 export * from "./generators/QuestionGenerator";
 export * from "./generators/QuestionGeneratorService";
