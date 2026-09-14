@@ -6,6 +6,8 @@ export * from "./extractors/DocumentStructureExtractor";
 export * from "./extractors/DocumentStructureExtractorService";
 export * from "./extractors/QuestionPatternEvidenceExtractor";
 export * from "./extractors/QuestionPatternEvidenceExtractorService";
+export * from "./extractors/QuestionTypeInterpreter";
+export * from "./extractors/QuestionTypeInterpreterService";
 
 export * from "./generators/QuestionGenerator";
 export * from "./generators/QuestionGeneratorService";
