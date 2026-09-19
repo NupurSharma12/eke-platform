@@ -8,6 +8,8 @@ export * from "./extractors/QuestionPatternEvidenceExtractor";
 export * from "./extractors/QuestionPatternEvidenceExtractorService";
 export * from "./extractors/QuestionTypeInterpreter";
 export * from "./extractors/QuestionTypeInterpreterService";
+export * from "./extractors/QuestionPatternCandidateDiscovery";
+export * from "./extractors/QuestionPatternCandidateDiscoveryService";
 
 export * from "./generators/QuestionGenerator";
 export * from "./generators/QuestionGeneratorService";
